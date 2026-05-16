@@ -1,0 +1,95 @@
+// MC Animator — JSON Schema Types
+
+export type TickMode = 'absolute' | 'relative'
+export type EasingType = 'linear' // 将来: 'ease_in' | 'ease_out' | 'ease_in_out' | 'cubic_bezier'
+
+export interface BlockState {
+  [key: string]: string
+}
+
+// ブロックキーフレーム
+export interface BlockKeyframe {
+  tick: number
+  tick_mode?: TickMode          // デフォルト: 'absolute'
+  block?: string | null         // null で削除
+  state?: BlockState
+  pos?: [number, number, number]
+  easing?: EasingType
+}
+
+// カメラキーフレーム
+export interface CameraKeyframe {
+  tick: number
+  tick_mode?: TickMode
+  pos?: [number, number, number]
+  look_at?: [number, number, number]
+  fov?: number
+  easing?: EasingType
+}
+
+// ブロックオブジェクト
+export interface BlockObject {
+  id: string
+  type: 'block'
+  keyframes: BlockKeyframe[]
+}
+
+// カメラオブジェクト
+export interface CameraObject {
+  id: string
+  type: 'camera'
+  keyframes: CameraKeyframe[]
+}
+
+export type SceneObject = BlockObject | CameraObject
+
+// metadata
+export interface Metadata {
+  format_version: number
+  mc_version: string
+  resolution: [number, number] | readonly [number, number]
+  fps: number
+  ticks_per_second: number
+  duration_ticks: number
+  background_color?: string     // '#AARRGGBB' 形式、デフォルト '#00000000'
+  active_camera?: string        // デフォルト '__camera__'
+}
+
+// ルートスキーマ
+export interface AnimationSchema {
+  metadata: Metadata
+  objects: SceneObject[]
+}
+
+// ── バリデーション結果 ──────────────────────────────────────────
+
+export type ValidationSeverity = 'error' | 'warning'
+
+export interface ValidationMessage {
+  severity: ValidationSeverity
+  message: string
+}
+
+export interface ValidationResult {
+  valid: boolean
+  messages: ValidationMessage[]
+}
+
+// ── 補間済みフレーム状態（内部用） ────────────────────────────────
+
+export interface ResolvedBlockState {
+  visible: boolean
+  block: string
+  state: BlockState
+  pos: [number, number, number]
+}
+
+export interface ResolvedCameraState {
+  pos: [number, number, number]
+  look_at: [number, number, number]
+  fov: number
+}
+
+export const MAX_FRAMES = 4096
+export const DEFAULT_CAMERA_ID = '__camera__'
+export const DEFAULT_BACKGROUND_COLOR = '#00000000'

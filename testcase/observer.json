@@ -1,0 +1,102 @@
+{
+  "metadata": {
+    "format_version": 1,
+    "mc_version": "1.21.11",
+    "resolution": [1920, 1080],
+    "fps": 60,
+    "ticks_per_second": 20,
+    "duration_ticks": 100,
+    "background_color": "#00000000",
+    "active_camera": "cam_main"
+  },
+  "objects": [
+    {
+      "id": "observer_0",
+      "type": "block",
+      "keyframes": [
+        {
+          "tick": 0,
+          "block": "minecraft:observer",
+          "state": { "facing": "south", "powered": "false" },
+          "pos": [0, 64, 0]
+        },
+        { "tick": 10, "tick_mode": "relative", "state": { "powered": "true" } },
+        { "tick": 2,  "tick_mode": "relative", "state": { "powered": "false" } },
+        { "tick": 2, "tick_mode": "relative", "state": { "powered": "true" } },
+        { "tick": 2,  "tick_mode": "relative", "state": { "powered": "false" } },
+        {
+          "tick": 10,
+          "tick_mode": "relative",
+          "state": { "facing" : "north" },
+          "pos": [0, 64, 1]
+        },
+        { "tick": 2, "tick_mode": "relative", "state": { "powered": "true" } },
+        { "tick": 2,  "tick_mode": "relative", "state": { "powered": "false" } },
+        { "tick": 2, "tick_mode": "relative", "state": { "powered": "true" } },
+        { "tick": 2,  "tick_mode": "relative", "state": { "powered": "false" } }
+      ]
+    },
+    {
+      "id": "glass_0",
+      "type": "block",
+      "keyframes": [
+        {
+          "tick": 28,
+          "block": "minecraft:glass",
+          "pos": [0, 64, 2]
+        },
+        {
+          "tick": 10,
+          "tick_mode": "relative",
+          "block": null
+        }
+      ]
+    },
+    {
+      "id": "glass_1",
+      "type": "block",
+      "keyframes": [
+        {
+          "tick": 38,
+          "block": "minecraft:glass",
+          "pos": [0, 63, 2]
+        },
+        {
+          "tick": 10,
+          "tick_mode": "relative",
+          "block": null
+        }
+      ]
+    },
+    {
+      "id": "glass_2",
+      "type": "block",
+      "keyframes": [
+        {
+          "tick": 48,
+          "block": "minecraft:glass",
+          "pos": [0, 65, 2]
+        },
+        {
+          "tick": 10,
+          "tick_mode": "relative",
+          "block": null
+        }
+      ]
+    },
+    {
+      "id": "cam_main",
+      "type": "camera",
+      "keyframes": [
+        { "tick": 0,   "pos": [7, 68, 7], "look_at": [0, 65, 0], "fov": 70 }
+      ]
+    },
+    {
+      "id": "cam_close",
+      "type": "camera",
+      "keyframes": [
+        { "tick": 0, "pos": [3, 66, 3], "look_at": [0, 64, 0], "fov": 50 }
+      ]
+    }
+  ]
+}
