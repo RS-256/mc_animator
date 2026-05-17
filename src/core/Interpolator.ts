@@ -15,6 +15,17 @@ import { DEFAULT_CAMERA_ID } from '../types/schema'
 
 function applyEasing(t: number, easing: EasingType): number {
   switch (easing) {
+    case 'easeInOutCubic':
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+    case 'easeInOutQuart':
+      return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2
+    case 'easeInOutSine':
+      return -(Math.cos(Math.PI * t) - 1) / 2
+    case 'easeInOutExpo':
+      if (t === 0 || t === 1) return t
+      return t < 0.5
+        ? Math.pow(2, 20 * t - 10) / 2
+        : (2 - Math.pow(2, -20 * t + 10)) / 2
     case 'linear':
     default:
       return t
@@ -69,14 +80,12 @@ export function resolveBlock(
   let block: string | null = null
   let state: BlockState = {}
   let pos: [number, number, number] = [0, 0, 0]
-  let easing: EasingType = 'linear'
 
   for (let i = 0; i <= prevIdx; i++) {
     const kf = kfs[i]
     if (kf.block !== undefined) block = kf.block
     if (kf.state !== undefined) state = { ...state, ...kf.state }
     if (kf.pos !== undefined) pos = kf.pos
-    if (kf.easing !== undefined) easing = kf.easing
   }
 
   if (block === null) return null // 削除済み
@@ -92,6 +101,7 @@ export function resolveBlock(
     const duration = next._absoluteTick - prev._absoluteTick
     if (duration > 0) {
       const rawT = (tick - prev._absoluteTick) / duration
+      const easing = next.easing ?? 'linear'
       const t = applyEasing(rawT, easing)
       pos = lerpVec3(prevPos, nextPos, t)
     }
@@ -158,7 +168,7 @@ export function resolveCamera(
   const prev = kfs[prevIdx]
   const next = kfs[nextIdx]
   const duration = next._absoluteTick - prev._absoluteTick
-  const easing = resolveCamField<EasingType>(kfs, prevIdx, 'easing', 'linear')
+  const easing = next.easing ?? 'linear'
   const rawT = duration > 0 ? (tick - prev._absoluteTick) / duration : 1
   const t = applyEasing(rawT, easing)
 

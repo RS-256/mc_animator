@@ -28,6 +28,29 @@ frame_0002.png
 ...
 ```
 
+## Easing
+
+Keyframes can define `easing` to control how interpolated values move into that keyframe. The easing belongs to the destination keyframe, so this example uses `easeInOutCubic` for the movement from tick `0` to tick `60`:
+
+```json
+{
+  "keyframes": [
+    { "tick": 0, "pos": [0, 0, 0] },
+    { "tick": 60, "pos": [0, 4, 0], "easing": "easeInOutCubic" }
+  ]
+}
+```
+
+Supported easing values:
+
+- `linear`
+- `easeInOutCubic`
+- `easeInOutQuart`
+- `easeInOutSine`
+- `easeInOutExpo`
+
+Easing is applied to block `pos` interpolation and camera `pos`, `look_at`, and `fov` interpolation. Keyframes without `easing` use `linear`.
+
 ## Local video encoding
 
 Install ffmpeg and make sure the `ffmpeg` command is available in your terminal.

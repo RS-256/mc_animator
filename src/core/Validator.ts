@@ -3,7 +3,7 @@ import type {
   ValidationResult,
   ValidationMessage,
 } from '../types/schema'
-import { MAX_FRAMES, DEFAULT_CAMERA_ID } from '../types/schema'
+import { MAX_FRAMES, DEFAULT_CAMERA_ID, SUPPORTED_EASINGS } from '../types/schema'
 
 const ARGB_RE = /^#[0-9A-Fa-f]{8}$/
 
@@ -92,6 +92,21 @@ export function validate(data: unknown): ValidationResult {
 
     if (!Array.isArray(obj.keyframes) || obj.keyframes.length === 0) {
       msgs.push({ severity: 'error', message: `オブジェクト "${id}" にキーフレームがありません` })
+    } else {
+      for (let k = 0; k < obj.keyframes.length; k++) {
+        const kf = obj.keyframes[k]
+        if (typeof kf !== 'object' || kf === null || Array.isArray(kf)) continue
+        const easing = (kf as Record<string, unknown>).easing
+        if (
+          easing !== undefined &&
+          (typeof easing !== 'string' || !(SUPPORTED_EASINGS as readonly string[]).includes(easing))
+        ) {
+          msgs.push({
+            severity: 'error',
+            message: `"${id}" の keyframes[${k}].easing は ${SUPPORTED_EASINGS.join(', ')} のいずれかで指定してください`,
+          })
+        }
+      }
     }
   }
 

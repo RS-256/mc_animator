@@ -1,7 +1,14 @@
 // MC Animator — JSON Schema Types
 
 export type TickMode = 'absolute' | 'relative'
-export type EasingType = 'linear' // 将来: 'ease_in' | 'ease_out' | 'ease_in_out' | 'cubic_bezier'
+export const SUPPORTED_EASINGS = [
+  'linear',
+  'easeInOutCubic',
+  'easeInOutQuart',
+  'easeInOutSine',
+  'easeInOutExpo',
+] as const
+export type EasingType = typeof SUPPORTED_EASINGS[number]
 
 export interface BlockState {
   [key: string]: string
