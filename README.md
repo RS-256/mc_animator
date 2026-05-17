@@ -51,6 +51,10 @@ Supported easing values:
 
 Easing is applied to block `pos` interpolation and camera `pos`, `look_at`, and `fov` interpolation. Keyframes without `easing` use `linear`.
 
+## Samples
+
+Example animation JSON files are available in [`samples/`](samples/). They include small beginner-friendly scenes, camera and easing examples, and a broader showcase that uses all currently supported core tags.
+
 ## Local video encoding
 
 Install ffmpeg and make sure the `ffmpeg` command is available in your terminal.

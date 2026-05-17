@@ -1,0 +1,28 @@
+{
+  "metadata": {
+    "format_version": 1,
+    "mc_version": "1.21.4",
+    "resolution": [1280, 720],
+    "fps": 30,
+    "ticks_per_second": 20,
+    "duration_ticks": 40,
+    "background_color": "#FF1A1A2E",
+    "active_camera": "__camera__"
+  },
+  "objects": [
+    {
+      "id": "stone_0",
+      "type": "block",
+      "keyframes": [
+        { "tick": 0, "block": "minecraft:stone", "pos": [0, 0, 0] }
+      ]
+    },
+    {
+      "id": "__camera__",
+      "type": "camera",
+      "keyframes": [
+        { "tick": 0, "pos": [5, 4, 6], "look_at": [0, 0, 0], "fov": 60 }
+      ]
+    }
+  ]
+}

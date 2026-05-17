@@ -1,0 +1,44 @@
+{
+  "metadata": {
+    "format_version": 1,
+    "mc_version": "1.21.4",
+    "resolution": [1280, 720],
+    "fps": 30,
+    "ticks_per_second": 20,
+    "duration_ticks": 100,
+    "background_color": "#FF161A20",
+    "active_camera": "cam_orbit"
+  },
+  "objects": [
+    {
+      "id": "center_0",
+      "type": "block",
+      "keyframes": [
+        { "tick": 0, "block": "minecraft:gold_block", "pos": [0, 0, 0] }
+      ]
+    },
+    {
+      "id": "left_0",
+      "type": "block",
+      "keyframes": [
+        { "tick": 0, "block": "minecraft:copper_block", "pos": [-2, 0, 0] }
+      ]
+    },
+    {
+      "id": "right_0",
+      "type": "block",
+      "keyframes": [
+        { "tick": 0, "block": "minecraft:emerald_block", "pos": [2, 0, 0] }
+      ]
+    },
+    {
+      "id": "cam_orbit",
+      "type": "camera",
+      "keyframes": [
+        { "tick": 0, "pos": [6, 4, 7], "look_at": [0, 0, 0], "fov": 70 },
+        { "tick": 50, "pos": [-6, 5, 7], "look_at": [0, 0.5, 0], "fov": 45, "easing": "easeInOutSine" },
+        { "tick": 100, "pos": [6, 4, -7], "look_at": [0, 0, 0], "fov": 65, "easing": "easeInOutCubic" }
+      ]
+    }
+  ]
+}

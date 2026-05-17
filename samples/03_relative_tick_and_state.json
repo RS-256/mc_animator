@@ -1,0 +1,84 @@
+{
+  "metadata": {
+    "format_version": 1,
+    "mc_version": "1.21.4",
+    "resolution": [1280, 720],
+    "fps": 60,
+    "ticks_per_second": 2,
+    "duration_ticks": 10,
+    "background_color": "#FF181C22",
+    "active_camera": "__camera__"
+  },
+  "objects": [
+    {
+      "id": "observer_0",
+      "type": "block",
+      "keyframes": [
+        {
+          "tick": 0,
+          "block": "minecraft:observer",
+          "state": { "facing": "west", "powered": "false" },
+          "pos": [1, 0, 0]
+        },{
+          "tick": 4,
+          "tick_mode": "relative"
+        },{
+          "tick": 2,
+          "tick_mode": "relative",
+          "pos": [2, 0, 0],
+          "easing": "linear"
+        },{
+          "tick": 2,
+          "tick_mode": "relative",
+          "block": "minecraft:observer",
+          "state": { "powered": "true" }
+        },{
+          "tick": 2,
+          "tick_mode": "relative",
+          "block": "minecraft:observer",
+          "state": { "powered": "false" }
+        }
+      ]
+    },{
+      "id": "sticky_piston_0",
+      "type": "block",
+      "keyframes": [
+        {
+          "tick": 0,
+          "block": "minecraft:sticky_piston",
+          "state": { "facing": "east", "extended": "false" },
+          "pos": [0, 0, 0]
+        },{
+          "tick": 4,
+          "tick_mode": "relative",
+          "state": { "extended": "true" },
+          "pos": [0, 0, 0],
+          "easing": "linear"
+        }
+      ]
+    },{
+      "id": "piston_head_0",
+      "type": "block",
+      "keyframes": [
+        {
+          "tick": 4,
+          "block": "minecraft:piston_head",
+          "state": { "facing": "east", "type": "sticky" },
+          "pos": [0, 0, 0]
+        },{
+          "tick": 2,
+          "tick_mode": "relative",
+          "pos": [1, 0, 0],
+          "easing": "linear"
+        }
+      ]
+    },
+    {
+      "id": "__camera__",
+      "type": "camera",
+      "keyframes": [
+        { "tick": 0, "pos": [5, 3, 7], "look_at": [0, 0, 0], "fov": 60 }
+      ]
+    }
+  ]
+}
