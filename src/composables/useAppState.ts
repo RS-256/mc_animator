@@ -24,6 +24,7 @@ const totalTicks = computed(() => schema.value?.metadata.duration_ticks ?? 0)
 
 const fps = computed(() => schema.value?.metadata.fps ?? 60)
 const tps = computed(() => schema.value?.metadata.ticks_per_second ?? 20)
+const ticksPerFrame = computed(() => tps.value / fps.value)
 const totalFrames = computed(() =>
   Math.ceil(totalTicks.value * fps.value / tps.value),
 )
@@ -78,14 +79,14 @@ let playInterval: ReturnType<typeof setInterval> | null = null
 function startPlay() {
   if (isPlaying.value) return
   isPlaying.value = true
-  const msPerTick = 1000 / (schema.value?.metadata.ticks_per_second ?? 20)
+  const msPerFrame = 1000 / fps.value
   playInterval = setInterval(() => {
     if (currentTick.value >= totalTicks.value) {
       currentTick.value = 0
     } else {
-      currentTick.value++
+      setTick(currentTick.value + ticksPerFrame.value)
     }
-  }, msPerTick)
+  }, msPerFrame)
 }
 
 function stopPlay() {
@@ -114,6 +115,7 @@ export function useAppState() {
     // computed
     totalTicks,
     totalFrames,
+    ticksPerFrame,
     cameraObjects,
     blockObjects,
     fps,

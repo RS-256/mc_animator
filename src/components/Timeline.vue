@@ -2,9 +2,14 @@
 import { computed } from 'vue'
 import { useAppState } from '../composables/useAppState'
 
-const { currentTick, totalTicks, isPlaying, setTick, togglePlay, stopPlay } = useAppState()
+const { currentTick, totalTicks, totalFrames, ticksPerFrame, isPlaying, setTick, togglePlay, stopPlay } = useAppState()
 
-const tickLabel = computed(() => `tick: ${currentTick.value} / ${totalTicks.value}`)
+const currentFrame = computed(() => Math.min(totalFrames.value, Math.round(currentTick.value / ticksPerFrame.value)))
+const currentTickLabel = computed(() => Number.isInteger(currentTick.value)
+  ? String(currentTick.value)
+  : currentTick.value.toFixed(2),
+)
+const tickLabel = computed(() => `frame: ${currentFrame.value} / ${totalFrames.value} | tick: ${currentTickLabel.value} / ${totalTicks.value}`)
 
 function onScrub(e: Event) {
   setTick(+(e.target as HTMLInputElement).value)
@@ -12,19 +17,19 @@ function onScrub(e: Event) {
 
 function goStart() { stopPlay(); setTick(0) }
 function goEnd()   { stopPlay(); setTick(totalTicks.value) }
-function stepBack() { stopPlay(); setTick(currentTick.value - 1) }
-function stepFwd()  { stopPlay(); setTick(currentTick.value + 1) }
+function stepBack() { stopPlay(); setTick(currentTick.value - ticksPerFrame.value) }
+function stepFwd()  { stopPlay(); setTick(currentTick.value + ticksPerFrame.value) }
 </script>
 
 <template>
   <div class="timeline">
     <div class="timeline__controls">
       <button class="ctrl-btn" title="先頭" @click="goStart">⏮</button>
-      <button class="ctrl-btn" title="-1 tick" @click="stepBack">◀</button>
+      <button class="ctrl-btn" title="-1 frame" @click="stepBack">◀</button>
       <button class="ctrl-btn play" :class="{ playing: isPlaying }" @click="togglePlay">
         {{ isPlaying ? '⏸' : '▶' }}
       </button>
-      <button class="ctrl-btn" title="+1 tick" @click="stepFwd">▶</button>
+      <button class="ctrl-btn" title="+1 frame" @click="stepFwd">▶</button>
       <button class="ctrl-btn" title="末尾" @click="goEnd">⏭</button>
     </div>
 
@@ -33,6 +38,7 @@ function stepFwd()  { stopPlay(); setTick(currentTick.value + 1) }
       type="range"
       min="0"
       :max="totalTicks"
+      :step="ticksPerFrame"
       :value="currentTick"
       @input="onScrub"
     />
