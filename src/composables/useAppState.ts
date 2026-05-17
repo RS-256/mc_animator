@@ -10,6 +10,7 @@ const validation = ref<ValidationResult | null>(null)
 const currentTick = ref(0)
 const isPlaying = ref(false)
 const activeCameraId = ref<string>('__camera__')
+const sourceJsonFileName = ref<string | null>(null)
 
 const cdnLoader = new CdnTextureLoader('1.21.4')
 const zipLoader = new ZipTextureLoader(cdnLoader)
@@ -48,6 +49,7 @@ async function loadJson(file: File) {
   if (result.valid) {
     const parsed = parseSchema(data)
     schema.value = parsed
+    sourceJsonFileName.value = file.name
     currentTick.value = 0
     activeCameraId.value = parsed.metadata.active_camera ?? '__camera__'
     cdnLoader.setVersion(parsed.metadata.mc_version)
@@ -109,6 +111,7 @@ export function useAppState() {
     currentTick: readonly(currentTick),
     isPlaying: readonly(isPlaying),
     activeCameraId: readonly(activeCameraId),
+    sourceJsonFileName: readonly(sourceJsonFileName),
     isExporting: readonly(isExporting),
     exportProgress: readonly(exportProgress),
 

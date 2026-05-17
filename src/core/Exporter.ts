@@ -14,6 +14,7 @@ export type ExportMode = 'direct' | 'local_package'
 export interface ExportOptions {
   format: ExportFormat
   mode?: ExportMode
+  sourceFileName?: string
   onProgress?: (current: number, total: number) => void
   onCancel?: () => boolean
 }
@@ -38,16 +39,29 @@ const VIDEO_INPUT_WINDOWS = 'frames\\frame_%%04d.png'
 const VIDEO_INPUT_UNIX = 'frames/frame_%04d.png'
 let ffmpegInstance: FFmpeg | null = null
 
-function buildPreset(format: ExportFormat): ExportPreset {
+function sanitizeFileBaseName(fileName: string | undefined): string {
+  const fallback = 'animation'
+  const withoutExtension = (fileName ?? fallback).replace(/\.[^./\\]+$/, '')
+  const sanitized = withoutExtension
+    .replace(/[<>:"/\\|?*\u0000-\u001F]+/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/^_+|_+$/g, '')
+
+  return sanitized || fallback
+}
+
+function buildPreset(format: ExportFormat, sourceFileName?: string): ExportPreset {
+  const baseName = sanitizeFileBaseName(sourceFileName)
+
   switch (format) {
     case 'mkv_ffv1':
       return {
         label: 'Lossless MKV / FFV1',
-        downloadName: 'mc_animator_lossless.mkv',
-        localPackageName: 'mc_animator_mkv_ffv1_package.zip',
+        downloadName: `${baseName}_mkv_ffv1.mkv`,
+        localPackageName: `${baseName}_mkv_ffv1_package.zip`,
         framePath: frameNum => `frames/frame_${frameNum}.png`,
         video: {
-          outputName: 'output_lossless.mkv',
+          outputName: `${baseName}_mkv_ffv1.mkv`,
           mimeType: 'video/x-matroska',
           ffmpegArgs: (fps, inputPattern, outputName) => [
             '-framerate', String(fps),
@@ -59,27 +73,27 @@ function buildPreset(format: ExportFormat): ExportPreset {
             outputName,
           ],
         },
-        readme: fps => videoReadme('Lossless MKV / FFV1', fps, 'output_lossless.mkv'),
+        readme: fps => videoReadme('Lossless MKV / FFV1', fps, `${baseName}_mkv_ffv1.mkv`),
         windowsScript: fps => [
           '@echo off',
           'setlocal',
-          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_WINDOWS}" -c:v ffv1 -level 3 -pix_fmt rgba "output_lossless.mkv"`,
+          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_WINDOWS}" -c:v ffv1 -level 3 -pix_fmt rgba "${baseName}_mkv_ffv1.mkv"`,
           'pause',
         ].join('\r\n'),
         unixScript: fps => [
           '#!/usr/bin/env sh',
           'set -eu',
-          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_UNIX}" -c:v ffv1 -level 3 -pix_fmt rgba "output_lossless.mkv"`,
+          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_UNIX}" -c:v ffv1 -level 3 -pix_fmt rgba "${baseName}_mkv_ffv1.mkv"`,
         ].join('\n'),
       }
     case 'mp4_h264':
       return {
         label: 'MP4 / H.264',
-        downloadName: 'mc_animator_h264.mp4',
-        localPackageName: 'mc_animator_mp4_h264_package.zip',
+        downloadName: `${baseName}_mp4_h264.mp4`,
+        localPackageName: `${baseName}_mp4_h264_package.zip`,
         framePath: frameNum => `frames/frame_${frameNum}.png`,
         video: {
-          outputName: 'output_h264.mp4',
+          outputName: `${baseName}_mp4_h264.mp4`,
           mimeType: 'video/mp4',
           ffmpegArgs: (fps, inputPattern, outputName) => [
             '-framerate', String(fps),
@@ -103,27 +117,27 @@ function buildPreset(format: ExportFormat): ExportPreset {
             outputName,
           ],
         },
-        readme: fps => videoReadme('MP4 / H.264', fps, 'output_h264.mp4'),
+        readme: fps => videoReadme('MP4 / H.264', fps, `${baseName}_mp4_h264.mp4`),
         windowsScript: fps => [
           '@echo off',
           'setlocal',
-          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_WINDOWS}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p "output_h264.mp4"`,
+          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_WINDOWS}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p "${baseName}_mp4_h264.mp4"`,
           'pause',
         ].join('\r\n'),
         unixScript: fps => [
           '#!/usr/bin/env sh',
           'set -eu',
-          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_UNIX}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p "output_h264.mp4"`,
+          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_UNIX}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx264 -preset slow -crf 18 -pix_fmt yuv420p "${baseName}_mp4_h264.mp4"`,
         ].join('\n'),
       }
     case 'mp4_h265':
       return {
         label: 'MP4 / H.265',
-        downloadName: 'mc_animator_h265.mp4',
-        localPackageName: 'mc_animator_mp4_h265_package.zip',
+        downloadName: `${baseName}_mp4_h265.mp4`,
+        localPackageName: `${baseName}_mp4_h265_package.zip`,
         framePath: frameNum => `frames/frame_${frameNum}.png`,
         video: {
-          outputName: 'output_h265.mp4',
+          outputName: `${baseName}_mp4_h265.mp4`,
           mimeType: 'video/mp4',
           ffmpegArgs: (fps, inputPattern, outputName) => [
             '-framerate', String(fps),
@@ -138,27 +152,27 @@ function buildPreset(format: ExportFormat): ExportPreset {
             outputName,
           ],
         },
-        readme: fps => videoReadme('MP4 / H.265', fps, 'output_h265.mp4'),
+        readme: fps => videoReadme('MP4 / H.265', fps, `${baseName}_mp4_h265.mp4`),
         windowsScript: fps => [
           '@echo off',
           'setlocal',
-          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_WINDOWS}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx265 -preset slow -crf 20 -tag:v hvc1 -pix_fmt yuv420p "output_h265.mp4"`,
+          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_WINDOWS}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx265 -preset slow -crf 20 -tag:v hvc1 -pix_fmt yuv420p "${baseName}_mp4_h265.mp4"`,
           'pause',
         ].join('\r\n'),
         unixScript: fps => [
           '#!/usr/bin/env sh',
           'set -eu',
-          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_UNIX}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx265 -preset slow -crf 20 -tag:v hvc1 -pix_fmt yuv420p "output_h265.mp4"`,
+          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_UNIX}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx265 -preset slow -crf 20 -tag:v hvc1 -pix_fmt yuv420p "${baseName}_mp4_h265.mp4"`,
         ].join('\n'),
       }
     case 'mp4_av1':
       return {
         label: 'MP4 / AV1',
-        downloadName: 'mc_animator_av1.mp4',
-        localPackageName: 'mc_animator_mp4_av1_package.zip',
+        downloadName: `${baseName}_mp4_av1.mp4`,
+        localPackageName: `${baseName}_mp4_av1_package.zip`,
         framePath: frameNum => `frames/frame_${frameNum}.png`,
         video: {
-          outputName: 'output_av1.mp4',
+          outputName: `${baseName}_mp4_av1.mp4`,
           mimeType: 'video/mp4',
           ffmpegArgs: (fps, inputPattern, outputName) => [
             '-framerate', String(fps),
@@ -173,24 +187,24 @@ function buildPreset(format: ExportFormat): ExportPreset {
             outputName,
           ],
         },
-        readme: fps => videoReadme('MP4 / AV1', fps, 'output_av1.mp4'),
+        readme: fps => videoReadme('MP4 / AV1', fps, `${baseName}_mp4_av1.mp4`),
         windowsScript: fps => [
           '@echo off',
           'setlocal',
-          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_WINDOWS}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 4 -pix_fmt yuv420p "output_av1.mp4"`,
+          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_WINDOWS}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 4 -pix_fmt yuv420p "${baseName}_mp4_av1.mp4"`,
           'pause',
         ].join('\r\n'),
         unixScript: fps => [
           '#!/usr/bin/env sh',
           'set -eu',
-          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_UNIX}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 4 -pix_fmt yuv420p "output_av1.mp4"`,
+          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_UNIX}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 4 -pix_fmt yuv420p "${baseName}_mp4_av1.mp4"`,
         ].join('\n'),
       }
     case 'png_zip':
     default:
       return {
         label: 'PNG sequence',
-        downloadName: 'mc_animator_png_sequence.zip',
+        downloadName: `${baseName}_png_sequence.zip`,
         framePath: frameNum => `frame_${frameNum}.png`,
       }
   }
@@ -311,7 +325,7 @@ export async function exportAnimation(
   const ticksPerFrame = ticks_per_second / fps
 
   const zip = new JSZip()
-  const preset = buildPreset(options.format)
+  const preset = buildPreset(options.format, options.sourceFileName)
   const useLocalPackage = options.mode === 'local_package' && preset.video
 
   if (preset.video && !useLocalPackage) {

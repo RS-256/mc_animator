@@ -8,6 +8,7 @@ const {
   schema,
   zipLoader,
   totalFrames,
+  sourceJsonFileName,
   _isExporting: isExporting,
   _exportProgress: exportProgress,
 } = useAppState()
@@ -45,6 +46,7 @@ async function startExport(mode: ExportMode = exportMode.value) {
     await exportAnimation(schema.value, renderer, {
       format: format.value,
       mode: isVideoFormat.value ? mode : 'direct',
+      sourceFileName: sourceJsonFileName.value ?? undefined,
       onProgress: (current, total) => {
         exportProgress.value = { current, total }
       },
