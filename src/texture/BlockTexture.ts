@@ -1,140 +1,399 @@
-import type { BlockState } from '../types/schema'
-import type { ITextureLoader } from './TextureLoader'
+/**
+ * BlockTexture.ts
+ *
+ * Minecraft のモデルパイプラインに従いブロックのマテリアルを構築する。
+ *
+ * パイプライン:
+ *   1. blockstates/{block}.json を取得 → state に合う variant/model を選択
+ *   2. models/{model}.json を再帰的に取得（parent 継承）
+ *   3. テクスチャ変数（"#side" 等）を解決して実パスを得る
+ *   4. 各面に Three.js マテリアルを割り当てる
+ *
+ * 初期実装は full-cube（cube / cube_all / cube_column / cube_directional 等）のみ対応。
+ */
+
 import * as THREE from 'three'
+import type { BlockState } from '../types/schema'
+import type { IAssetLoader } from './TextureLoader'
+import { MISSING_TEXTURE } from './TextureLoader'
 
-// ブロック名 → テクスチャパスのシンプルなマッピング
-// 初期実装では full-cube のみ対応
-// パスは assets/minecraft/textures/ 以下の相対パス
+// ── Minecraft JSON 型 ─────────────────────────────────────────────
 
-type FaceTextures = {
-  top: string
-  bottom: string
-  north: string
-  south: string
-  east: string
-  west: string
+interface BlockstatesVariant {
+  model: string
+  x?: number  // 0 | 90 | 180 | 270
+  y?: number
+  uvlock?: boolean
 }
 
-function all(path: string): FaceTextures {
-  return { top: path, bottom: path, north: path, south: path, east: path, west: path }
+interface BlockstatesJson {
+  variants?: Record<string, BlockstatesVariant | BlockstatesVariant[]>
+  multipart?: unknown  // 初期実装では未対応
 }
 
-function topBottom(top: string, bottom: string, side: string): FaceTextures {
-  return { top, bottom, north: side, south: side, east: side, west: side }
+interface ModelElement {
+  from: [number, number, number]
+  to: [number, number, number]
+  faces?: Record<string, { texture: string; cullface?: string; uv?: [number, number, number, number]; rotation?: number }>
 }
 
-// ブロック名 → 面テクスチャ解決関数
-type FaceResolver = (state: BlockState) => FaceTextures
-
-const BLOCK_TEXTURES: Record<string, FaceResolver> = {
-  'minecraft:stone':          () => all('block/stone'),
-  'minecraft:grass_block':    () => topBottom('block/grass_block_top', 'block/dirt', 'block/grass_block_side'),
-  'minecraft:dirt':           () => all('block/dirt'),
-  'minecraft:cobblestone':    () => all('block/cobblestone'),
-  'minecraft:oak_planks':     () => all('block/oak_planks'),
-  'minecraft:oak_log':        (s) => {
-    const axis = s['axis'] ?? 'y'
-    if (axis === 'y') return topBottom('block/oak_log_top', 'block/oak_log_top', 'block/oak_log')
-    if (axis === 'x') return { top: 'block/oak_log', bottom: 'block/oak_log', north: 'block/oak_log_top', south: 'block/oak_log_top', east: 'block/oak_log', west: 'block/oak_log' }
-    return { top: 'block/oak_log_top', bottom: 'block/oak_log_top', north: 'block/oak_log', south: 'block/oak_log', east: 'block/oak_log_top', west: 'block/oak_log_top' }
-  },
-  'minecraft:sand':           () => all('block/sand'),
-  'minecraft:gravel':         () => all('block/gravel'),
-  'minecraft:oak_leaves':     () => all('block/oak_leaves'),
-  'minecraft:glass':          () => all('block/glass'),
-  'minecraft:tnt':            () => topBottom('block/tnt_top', 'block/tnt_bottom', 'block/tnt_side'),
-  'minecraft:crafting_table': () => ({
-    top:    'block/crafting_table_top',
-    bottom: 'block/oak_planks',
-    north:  'block/crafting_table_front',
-    south:  'block/crafting_table_side',
-    east:   'block/crafting_table_front',
-    west:   'block/crafting_table_side',
-  }),
-  'minecraft:furnace': (s) => {
-    const facing = s['facing'] ?? 'north'
-    const front = s['lit'] === 'true' ? 'block/furnace_front_on' : 'block/furnace_front'
-    const faceMap: Record<string, FaceTextures> = {
-      north: { top: 'block/furnace_top', bottom: 'block/furnace_top', north: front,               south: 'block/furnace_side', east: 'block/furnace_side', west: 'block/furnace_side' },
-      south: { top: 'block/furnace_top', bottom: 'block/furnace_top', north: 'block/furnace_side', south: front,               east: 'block/furnace_side', west: 'block/furnace_side' },
-      east:  { top: 'block/furnace_top', bottom: 'block/furnace_top', north: 'block/furnace_side', south: 'block/furnace_side', east: front,               west: 'block/furnace_side' },
-      west:  { top: 'block/furnace_top', bottom: 'block/furnace_top', north: 'block/furnace_side', south: 'block/furnace_side', east: 'block/furnace_side', west: front               },
-    }
-    return faceMap[facing] ?? faceMap['north']
-  },
-  'minecraft:observer': (s) => {
-    const facing = s['facing'] ?? 'north'
-    const powered = s['powered'] === 'true'
-    const back = powered ? 'block/observer_back_on' : 'block/observer_back'
-    const faceMap: Record<string, FaceTextures> = {
-      north: { top: 'block/observer_top', bottom: 'block/observer_top', north: 'block/observer_front', south: back,                   east: 'block/observer_side', west: 'block/observer_side' },
-      south: { top: 'block/observer_top', bottom: 'block/observer_top', north: back,                   south: 'block/observer_front', east: 'block/observer_side', west: 'block/observer_side' },
-      east:  { top: 'block/observer_top', bottom: 'block/observer_top', north: 'block/observer_side',  south: 'block/observer_side',  east: 'block/observer_front', west: back                   },
-      west:  { top: 'block/observer_top', bottom: 'block/observer_top', north: 'block/observer_side',  south: 'block/observer_side',  east: back,                   west: 'block/observer_front' },
-      up:    { top: 'block/observer_front', bottom: back,                north: 'block/observer_top',  south: 'block/observer_top',   east: 'block/observer_top',   west: 'block/observer_top'   },
-      down:  { top: back,                   bottom: 'block/observer_front', north: 'block/observer_top', south: 'block/observer_top', east: 'block/observer_top',   west: 'block/observer_top'   },
-    }
-    return faceMap[facing] ?? faceMap['north']
-  },
-  'minecraft:redstone_block': () => all('block/redstone_block'),
-  'minecraft:iron_block':     () => all('block/iron_block'),
-  'minecraft:gold_block':     () => all('block/gold_block'),
-  'minecraft:diamond_block':  () => all('block/diamond_block'),
-  'minecraft:emerald_block':  () => all('block/emerald_block'),
-  'minecraft:netherrack':     () => all('block/netherrack'),
-  'minecraft:soul_sand':      () => all('block/soul_sand'),
-  'minecraft:obsidian':       () => all('block/obsidian'),
-  'minecraft:bedrock':        () => all('block/bedrock'),
-  'minecraft:water':          () => all('block/water_still'),
-  'minecraft:lava':           () => all('block/lava_still'),
-  'minecraft:glowstone':      () => all('block/glowstone'),
-  'minecraft:pumpkin':        (s) => {
-    const facing = s['facing'] ?? 'north'
-    const faceMap: Record<string, FaceTextures> = {
-      north: { top: 'block/pumpkin_top', bottom: 'block/pumpkin_top', north: 'block/pumpkin_front', south: 'block/pumpkin_side', east: 'block/pumpkin_side', west: 'block/pumpkin_side' },
-      south: { top: 'block/pumpkin_top', bottom: 'block/pumpkin_top', north: 'block/pumpkin_side',  south: 'block/pumpkin_front', east: 'block/pumpkin_side', west: 'block/pumpkin_side' },
-      east:  { top: 'block/pumpkin_top', bottom: 'block/pumpkin_top', north: 'block/pumpkin_side',  south: 'block/pumpkin_side',  east: 'block/pumpkin_front', west: 'block/pumpkin_side' },
-      west:  { top: 'block/pumpkin_top', bottom: 'block/pumpkin_top', north: 'block/pumpkin_side',  south: 'block/pumpkin_side',  east: 'block/pumpkin_side',  west: 'block/pumpkin_front' },
-    }
-    return faceMap[facing] ?? faceMap['north']
-  },
+interface ModelJson {
+  parent?: string
+  textures?: Record<string, string>
+  elements?: ModelElement[]
 }
 
-const FACE_ORDER: (keyof FaceTextures)[] = ['east', 'west', 'top', 'bottom', 'south', 'north']
-// Three.js BoxGeometry の面順: +X, -X, +Y, -Y, +Z, -Z
+// ── Three.js の BoxGeometry 面順 ──────────────────────────────────
+// BoxGeometry の materialIndex 順: +X(east), -X(west), +Y(up), -Y(down), +Z(south), -Z(north)
+const BOX_FACES = ['east', 'west', 'up', 'down', 'south', 'north'] as const
+type BoxFace = (typeof BOX_FACES)[number]
 
-export async function buildBlockMaterials(
-  blockId: string,
+interface FaceTextureInfo {
+  texture: string
+  uv?: [number, number, number, number]
+  rotation?: number
+}
+// ── モデル JSON の再帰取得（parent 継承） ─────────────────────────
+
+async function fetchModelMerged(
+  modelPath: string,
+  loader: IAssetLoader,
+  depth = 0,
+): Promise<ModelJson> {
+  if (depth > 8) return {}
+
+  // "minecraft:block/stone" → "assets/minecraft/models/block/stone.json"
+  const normalized = modelPath.replace(/^minecraft:/, '')
+  const jsonPath = `assets/minecraft/models/${normalized}.json`
+
+  const data = (await loader.loadJson(jsonPath)) as ModelJson | null
+  if (!data) return {}
+
+  if (!data.parent) return data
+
+  // parent をマージ（子が優先）
+  const parent = await fetchModelMerged(data.parent, loader, depth + 1)
+  return {
+    elements: data.elements ?? parent.elements,
+    textures: { ...(parent.textures ?? {}), ...(data.textures ?? {}) },
+  }
+}
+
+// ── テクスチャ変数の解決 ──────────────────────────────────────────
+// "#particle" や "#side" のような変数を実パスに展開する
+
+function resolveTexVar(val: string, textures: Record<string, string>, depth = 0): string {
+  if (!val.startsWith('#') || depth > 8) return val
+  const key = val.slice(1)
+  const next = textures[key]
+  if (!next) return val
+  return resolveTexVar(next, textures, depth + 1)
+}
+
+// ── blockstates の state 文字列を生成 ────────────────────────────
+// e.g. { facing: 'north', powered: 'false' } → "facing=north,powered=false"
+
+function buildStateStr(state: BlockState): string {
+  return Object.entries(state)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${k}=${v}`)
+    .join(',')
+}
+
+// blockstates の variants キーはサブセットでもマッチする場合がある
+// 例: "facing=north" が "facing=north,powered=false" にマッチ
+function findVariant(
+  variants: Record<string, BlockstatesVariant | BlockstatesVariant[]>,
   state: BlockState,
-  loader: ITextureLoader,
-  _mcVersion: string,
-): Promise<THREE.MeshLambertMaterial[]> {
-  const resolver = BLOCK_TEXTURES[blockId]
+): BlockstatesVariant | null {
+  const fullStr = buildStateStr(state)
 
-  if (!resolver) {
-    console.warn(`[BlockTexture] Unknown block: ${blockId}`)
-    const missingMat = new THREE.MeshLambertMaterial({ color: 0xff00ff })
-    return Array(6).fill(missingMat)
+  // 完全一致
+  if (variants[fullStr]) {
+    const v = variants[fullStr]
+    return Array.isArray(v) ? v[0] : v
   }
 
-  const faces = resolver(state)
+  // "" キー（全状態共通）
+  if (variants['']) {
+    const v = variants['']
+    return Array.isArray(v) ? v[0] : v
+  }
 
-  const materials = await Promise.all(
-    FACE_ORDER.map(async (face) => {
-      const texPath = faces[face]
-      const fullPath = `assets/minecraft/textures/${texPath}.png`
-      const tex = await loader.load(fullPath)
-      return new THREE.MeshLambertMaterial({
-        map: tex,
-        transparent: blockId.includes('glass') || blockId.includes('water') || blockId.includes('lava'),
-        alphaTest: 0.1,
-      })
-    }),
-  )
+  // 部分一致: variants のキーが state のサブセットであればマッチ
+  for (const [key, variant] of Object.entries(variants)) {
+    if (key === '') continue
+    const kvs = key.split(',')
+    const matches = kvs.every(kv => {
+      const [k, v] = kv.split('=')
+      return state[k] === v
+    })
+    if (matches) {
+      return Array.isArray(variant) ? variant[0] : variant
+    }
+  }
 
-  return materials
+  // state に対応するキーが見つからない場合は最初のエントリを使う
+  const first = Object.values(variants)[0]
+  if (first) return Array.isArray(first) ? first[0] : first
+
+  return null
 }
 
-export function isKnownBlock(blockId: string): boolean {
-  return blockId in BLOCK_TEXTURES
+// ── cube 系モデルの面テクスチャ解決 ──────────────────────────────
+// モデルの elements.faces から各方向のテクスチャ変数を取り出す。
+// この時点では回転は適用しない（後段の rotateFaceMap で行う）。
+
+// Minecraft の面名 → BoxFace の対応（up/down はそのまま、top/bottom は変換）
+const MC_FACE_TO_BOX: Record<string, BoxFace> = {
+  north: 'north',
+  south: 'south',
+  east: 'east',
+  west: 'west',
+  up: 'up',
+  down: 'down',
+}
+
+function buildFaceMapFromModel(
+  model: ModelJson,
+): Partial<Record<BoxFace, FaceTextureInfo>> | null {
+  const textures = model.textures ?? {}
+
+  // elements ベースの解決
+  if (model.elements && model.elements.length > 0) {
+    const result: Partial<Record<BoxFace, FaceTextureInfo>> = {}
+    for (const el of model.elements) {
+      if (!el.faces) continue
+      for (const [face, faceData] of Object.entries(el.faces)) {
+        const boxFace = MC_FACE_TO_BOX[face]
+        if (boxFace && !result[boxFace]) {
+          result[boxFace] = {
+            texture: resolveTexVar(faceData.texture, textures),
+            uv: faceData.uv,
+            rotation: faceData.rotation,
+          }
+        }
+      }
+    }
+    // 全6面が揃っていなくてもそのまま返す
+    if (Object.keys(result).length > 0) return result
+  }
+
+  // elements なし: textures の慣習的なキーから推定
+  const all    = textures['all']      ? resolveTexVar(textures['all'],      textures) : null
+  const top    = textures['top']      ? resolveTexVar(textures['top'],      textures) : null
+  const bottom = textures['bottom']   ? resolveTexVar(textures['bottom'],   textures) : null
+  const side   = textures['side']     ? resolveTexVar(textures['side'],     textures) : null
+  const end    = textures['end']      ? resolveTexVar(textures['end'],      textures) : null
+  const particle = textures['particle'] ? resolveTexVar(textures['particle'], textures) : null
+
+  if (all) {
+    return {
+      up: { texture: all },
+      down: { texture: all },
+      north: { texture: all },
+      south: { texture: all },
+      east: { texture: all },
+      west: { texture: all },
+    }
+  }
+  if (top || side || bottom || end) {
+    const t = top ?? end ?? particle ?? null
+    const b = bottom ?? end ?? particle ?? null
+    const s = side ?? particle ?? null
+    if (t && b && s) {
+      return {
+        up: { texture: t },
+        down: { texture: b },
+        north: { texture: s },
+        south: { texture: s },
+        east: { texture: s },
+        west: { texture: s },
+      }
+    }
+    // side だけある場合など、取れた面だけ返す
+    const partial: Partial<Record<BoxFace, FaceTextureInfo>> = {}
+    if (t) { partial.up = { texture: t } }
+    if (b) { partial.down = { texture: b } }
+    if (s) {
+      partial.north = { texture: s }
+      partial.south = { texture: s }
+      partial.east = { texture: s }
+      partial.west = { texture: s }
+    }
+    if (Object.keys(partial).length > 0) return partial
+  }
+
+  return null
+}
+
+// ── マテリアル構築 ────────────────────────────────────────────────
+
+async function texPathToMaterial(
+  texVar: string,
+  loader: IAssetLoader,
+  transparent: boolean,
+): Promise<THREE.MeshLambertMaterial> {
+  if (!texVar || texVar.startsWith('#')) {
+    // 未解決の変数
+    return new THREE.MeshLambertMaterial({ map: MISSING_TEXTURE })
+  }
+
+  // "minecraft:block/stone" → "assets/minecraft/textures/block/stone.png"
+  const normalized = texVar.replace(/^minecraft:/, '')
+  const fullPath = `assets/minecraft/textures/${normalized}.png`
+  const tex = await loader.loadTexture(fullPath)
+
+  return new THREE.MeshLambertMaterial({
+    map: tex,
+    transparent,
+    alphaTest: transparent ? 0.1 : 0,
+  })
+}
+
+function rotateUvCorners(
+  corners: [number, number][],
+  rotation: number,
+): [number, number][] {
+  const steps = ((rotation / 90) % 4 + 4) % 4
+  if (steps === 1) return [corners[2], corners[0], corners[3], corners[1]]
+  if (steps === 2) return [corners[3], corners[2], corners[1], corners[0]]
+  if (steps === 3) return [corners[1], corners[3], corners[0], corners[2]]
+  return corners
+}
+
+function applyFaceUvs(
+  geometry: THREE.BoxGeometry,
+  faceMap: Partial<Record<BoxFace, FaceTextureInfo>>,
+) {
+  const uvAttr = geometry.getAttribute('uv') as THREE.BufferAttribute
+
+  for (const [faceIndex, face] of BOX_FACES.entries()) {
+    const uv = faceMap[face]?.uv ?? [0, 0, 16, 16]
+    const rotation = faceMap[face]?.rotation ?? 0
+    const u1 = uv[0] / 16
+    const v1 = 1 - uv[1] / 16
+    const u2 = uv[2] / 16
+    const v2 = 1 - uv[3] / 16
+    const corners = rotateUvCorners([
+      [u1, v1],
+      [u2, v1],
+      [u1, v2],
+      [u2, v2],
+    ], rotation)
+    const vertexOffset = faceIndex * 4
+
+    for (let i = 0; i < corners.length; i++) {
+      uvAttr.setXY(vertexOffset + i, corners[i][0], corners[i][1])
+    }
+  }
+
+  uvAttr.needsUpdate = true
+}
+
+export interface BlockMeshData {
+  geometry: THREE.BoxGeometry
+  materials: THREE.MeshLambertMaterial[]
+  rotation: [number, number, number]
+}
+
+// ── air / transparent 判定 ────────────────────────────────────────
+
+const TRANSPARENT_BLOCKS = new Set([
+  'minecraft:air',
+  'minecraft:cave_air',
+  'minecraft:void_air',
+  'minecraft:glass',
+  'minecraft:glass_pane',
+  'minecraft:ice',
+  'minecraft:water',
+  'minecraft:lava',
+])
+
+function isTransparent(blockId: string): boolean {
+  return TRANSPARENT_BLOCKS.has(blockId) || blockId.includes('glass') || blockId.includes('leaves')
+}
+
+// ── メインエクスポート ─────────────────────────────────────────────
+
+export const AIR_BLOCKS = new Set([
+  'minecraft:air',
+  'minecraft:cave_air',
+  'minecraft:void_air',
+])
+
+/**
+ * ブロック ID + state からジオメトリ、6 面分の MeshLambertMaterial、モデル回転を返す。
+ * air 系は null を返す（メッシュを生成しない）。
+ */
+export async function buildBlockMeshData(
+  blockId: string,
+  state: BlockState,
+  loader: IAssetLoader,
+  _mcVersion: string,
+): Promise<BlockMeshData | null> {
+  // air は描画しない
+  if (AIR_BLOCKS.has(blockId)) return null
+
+  const transparent = isTransparent(blockId)
+
+  // 1. blockstates JSON を取得
+  const blockName = blockId.replace(/^minecraft:/, '')
+  const bsPath = `assets/minecraft/blockstates/${blockName}.json`
+  const bsData = (await loader.loadJson(bsPath)) as BlockstatesJson | null
+
+  let modelName: string | null = null
+  let rotX = 0
+  let rotY = 0
+
+  if (bsData?.variants) {
+    const variant = findVariant(bsData.variants, state)
+    if (variant) {
+      modelName = variant.model
+      rotX = variant.x ?? 0
+      rotY = variant.y ?? 0
+    }
+  } else if (!bsData) {
+    // blockstates JSON が取得できない場合はフォールバック
+    console.warn(`[BlockTexture] blockstates not found for: ${blockId}`)
+  }
+
+  // 2. model JSON を再帰取得
+  const model = modelName
+    ? await fetchModelMerged(modelName, loader)
+    : { textures: { all: `block/${blockName}` } }
+
+  // 3. 面テクスチャマップを構築
+  const faceTexMap = buildFaceMapFromModel(model)
+
+  if (!faceTexMap) {
+    console.warn(`[BlockTexture] Could not resolve faces for: ${blockId}`)
+    const missingMat = new THREE.MeshLambertMaterial({ map: MISSING_TEXTURE })
+    return {
+      geometry: new THREE.BoxGeometry(1, 1, 1),
+      materials: Array(6).fill(missingMat),
+      rotation: [THREE.MathUtils.degToRad(-rotX), THREE.MathUtils.degToRad(-rotY), 0],
+    }
+  }
+
+  // 4. テクスチャ変数を解決してマテリアルを生成
+  const textures = model.textures ?? {}
+  const materialsByFace: Partial<Record<BoxFace, THREE.MeshLambertMaterial>> = {}
+  for (const face of BOX_FACES) {
+    const raw = faceTexMap[face]?.texture
+    const resolved = raw ? resolveTexVar(raw, textures) : null
+    materialsByFace[face] = resolved
+      ? await texPathToMaterial(resolved, loader, transparent)
+      : new THREE.MeshLambertMaterial({ map: MISSING_TEXTURE })
+  }
+
+  const geometry = new THREE.BoxGeometry(1, 1, 1)
+  applyFaceUvs(geometry, faceTexMap)
+
+  return {
+    geometry,
+    // BoxGeometry の面順: +X(east), -X(west), +Y(up), -Y(down), +Z(south), -Z(north)
+    materials: BOX_FACES.map(face => materialsByFace[face] ?? new THREE.MeshLambertMaterial({ map: MISSING_TEXTURE })),
+    rotation: [THREE.MathUtils.degToRad(-rotX), THREE.MathUtils.degToRad(-rotY), 0],
+  }
 }

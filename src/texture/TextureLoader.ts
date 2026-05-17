@@ -1,13 +1,5 @@
 import * as THREE from 'three'
-
-// ── インターフェース ───────────────────────────────────────────────
-
-export interface ITextureLoader {
-  /** テクスチャを取得する。失敗時は Missing Texture を返す */
-  load(path: string): Promise<THREE.Texture>
-  /** リソースパック ZIP をセットする */
-  setResourcePack?(zip: File): Promise<void>
-}
+import JSZip from 'jszip'
 
 // ── Missing Texture（マゼンタ/黒チェッカー） ─────────────────────────
 
@@ -33,13 +25,23 @@ function createMissingTexture(): THREE.Texture {
 
 export const MISSING_TEXTURE = createMissingTexture()
 
-// ── CDN テクスチャローダー（jsDelivr + minecraft-assets） ────────────
+// ── インターフェース ───────────────────────────────────────────────
+
+export interface IAssetLoader {
+  /** PNG テクスチャを取得する */
+  loadTexture(path: string): Promise<THREE.Texture>
+  /** JSON アセット（blockstates / models）を取得する */
+  loadJson(path: string): Promise<unknown>
+}
+
+// ── CDN アセットローダー（jsDelivr + minecraft-assets） ────────────
 
 const CDN_BASE = 'https://cdn.jsdelivr.net/gh/InventivetalentDev/minecraft-assets'
 
-export class CdnTextureLoader implements ITextureLoader {
+export class CdnTextureLoader implements IAssetLoader {
   private version: string
-  private cache = new Map<string, THREE.Texture>()
+  private texCache = new Map<string, THREE.Texture>()
+  private jsonCache = new Map<string, unknown>()
   private threeLoader = new THREE.TextureLoader()
 
   constructor(version: string) {
@@ -47,13 +49,14 @@ export class CdnTextureLoader implements ITextureLoader {
   }
 
   setVersion(version: string) {
+    if (this.version === version) return
     this.version = version
-    this.cache.clear()
+    this.texCache.clear()
+    this.jsonCache.clear()
   }
 
-  async load(path: string): Promise<THREE.Texture> {
-    if (this.cache.has(path)) return this.cache.get(path)!
-
+  async loadTexture(path: string): Promise<THREE.Texture> {
+    if (this.texCache.has(path)) return this.texCache.get(path)!
     const url = `${CDN_BASE}@${this.version}/${path}`
     try {
       const tex = await new Promise<THREE.Texture>((resolve, reject) => {
@@ -61,69 +64,101 @@ export class CdnTextureLoader implements ITextureLoader {
       })
       tex.magFilter = THREE.NearestFilter
       tex.minFilter = THREE.NearestFilter
-      this.cache.set(path, tex)
+      this.texCache.set(path, tex)
       return tex
     } catch {
-      console.warn(`[TextureLoader] Failed to load: ${url}`)
+      console.warn(`[CDN] texture not found: ${url}`)
       return MISSING_TEXTURE
+    }
+  }
+
+  async loadJson(path: string): Promise<unknown> {
+    if (this.jsonCache.has(path)) return this.jsonCache.get(path)!
+    const url = `${CDN_BASE}@${this.version}/${path}`
+    try {
+      const res = await fetch(url)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      this.jsonCache.set(path, data)
+      return data
+    } catch {
+      console.warn(`[CDN] json not found: ${url}`)
+      return null
     }
   }
 }
 
-// ── ZIP テクスチャローダー（ユーザー提供リソースパック） ──────────────
+// ── ZIP アセットローダー（ユーザー提供リソースパック + CDN フォールバック） ──
 
-import JSZip from 'jszip'
-
-export class ZipTextureLoader implements ITextureLoader {
+export class ZipTextureLoader implements IAssetLoader {
   private fallback: CdnTextureLoader
-  private zipEntries = new Map<string, Blob>()
-  private cache = new Map<string, THREE.Texture>()
+  private zipTextures = new Map<string, Blob>()
+  private zipJsons = new Map<string, unknown>()
+  private texCache = new Map<string, THREE.Texture>()
 
   constructor(fallback: CdnTextureLoader) {
     this.fallback = fallback
   }
 
   async setResourcePack(file: File): Promise<void> {
-    this.zipEntries.clear()
-    this.cache.clear()
+    this.zipTextures.clear()
+    this.zipJsons.clear()
+    this.texCache.clear()
+
     const zip = await JSZip.loadAsync(file)
     const tasks: Promise<void>[] = []
+
     zip.forEach((relativePath, entry) => {
-      if (!entry.dir && relativePath.endsWith('.png')) {
-        tasks.push(
-          entry.async('blob').then(blob => {
-            const key = relativePath.replace(/^assets\/minecraft\//, '')
-            this.zipEntries.set(key, blob)
-          }),
-        )
+      if (entry.dir) return
+
+      // assets/minecraft/ 配下のみ対象
+      const match = relativePath.match(/^assets\/minecraft\/(.+)$/)
+      if (!match) return
+      const key = match[1] // 例: "textures/block/stone.png"
+
+      if (relativePath.endsWith('.png')) {
+        tasks.push(entry.async('blob').then(blob => { this.zipTextures.set(key, blob) }))
+      } else if (relativePath.endsWith('.json')) {
+        tasks.push(entry.async('string').then(text => {
+          try { this.zipJsons.set(key, JSON.parse(text)) } catch { /* ignore */ }
+        }))
       }
     })
+
     await Promise.all(tasks)
+    console.log(`[ZipLoader] loaded ${this.zipTextures.size} textures, ${this.zipJsons.size} jsons`)
   }
 
-  async load(path: string): Promise<THREE.Texture> {
-    if (this.cache.has(path)) return this.cache.get(path)!
+  async loadTexture(path: string): Promise<THREE.Texture> {
+    if (this.texCache.has(path)) return this.texCache.get(path)!
 
-    // assets/minecraft/ を除いた key で検索
+    // path は "assets/minecraft/textures/block/stone.png" 形式
     const key = path.replace(/^assets\/minecraft\//, '')
-    const blob = this.zipEntries.get(key)
+    const blob = this.zipTextures.get(key)
 
-    if (!blob) return this.fallback.load(path)
+    if (!blob) return this.fallback.loadTexture(path)
 
     const url = URL.createObjectURL(blob)
-    const loader = new THREE.TextureLoader()
     try {
+      const loader = new THREE.TextureLoader()
       const tex = await new Promise<THREE.Texture>((resolve, reject) => {
         loader.load(url, resolve, undefined, reject)
       })
       tex.magFilter = THREE.NearestFilter
       tex.minFilter = THREE.NearestFilter
       URL.revokeObjectURL(url)
-      this.cache.set(path, tex)
+      this.texCache.set(path, tex)
       return tex
     } catch {
       URL.revokeObjectURL(url)
-      return this.fallback.load(path)
+      return this.fallback.loadTexture(path)
     }
+  }
+
+  async loadJson(path: string): Promise<unknown> {
+    // path は "assets/minecraft/blockstates/stone.json" 形式
+    const key = path.replace(/^assets\/minecraft\//, '')
+    if (this.zipJsons.has(key)) return this.zipJsons.get(key)!
+    return this.fallback.loadJson(path)
   }
 }

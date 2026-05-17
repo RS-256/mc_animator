@@ -2,8 +2,8 @@ import * as THREE from 'three'
 import type { AnimationSchema } from '../types/schema'
 import { DEFAULT_BACKGROUND_COLOR } from '../types/schema'
 import { resolveScene } from '../core/Interpolator'
-import type { ITextureLoader } from '../texture/TextureLoader'
-import { buildBlockMaterials } from '../texture/BlockTexture'
+import type { IAssetLoader } from '../texture/TextureLoader'
+import { buildBlockMeshData } from '../texture/BlockTexture'
 
 // ARGB hex string → { r, g, b, a } (0–1)
 function parseARGB(hex: string): { r: number; g: number; b: number; a: number } {
@@ -28,7 +28,7 @@ export class SceneRenderer {
   private animFrameId: number | null = null
 
   private schema: AnimationSchema | null = null
-  private textureLoader: ITextureLoader | null = null
+  private textureLoader: IAssetLoader | null = null
   private blockMeshes = new Map<string, BlockMeshEntry>()
 
   private currentTick = 0
@@ -56,7 +56,7 @@ export class SceneRenderer {
     this.camera.updateProjectionMatrix()
   }
 
-  async loadSchema(schema: AnimationSchema, loader: ITextureLoader) {
+  async loadSchema(schema: AnimationSchema, loader: IAssetLoader) {
     this.schema = schema
     this.textureLoader = loader
     this.blockMeshes.forEach(entry => this.scene.remove(entry.mesh))
@@ -110,15 +110,18 @@ export class SceneRenderer {
           existing.mesh.geometry.dispose()
         }
 
-        const geometry = new THREE.BoxGeometry(1, 1, 1)
-        const materials = await buildBlockMaterials(
+        const meshData = await buildBlockMeshData(
           blockState.block,
           blockState.state,
           this.textureLoader!,
           this.schema!.metadata.mc_version,
         )
-        const mesh = new THREE.Mesh(geometry, materials)
+        // air 等は null が返るのでスキップ
+        if (!meshData) continue
+
+        const mesh = new THREE.Mesh(meshData.geometry, meshData.materials)
         mesh.position.set(...blockState.pos)
+        mesh.rotation.set(...meshData.rotation)
         this.scene.add(mesh)
         this.blockMeshes.set(id, { mesh, blockId: blockState.block, stateKey })
       }
