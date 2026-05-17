@@ -100,6 +100,16 @@ function buildStateStr(state: BlockState): string {
     .join(',')
 }
 
+function parseStateKey(key: string): Record<string, string> {
+  if (!key) return {}
+  return Object.fromEntries(
+    key.split(',').map(kv => {
+      const [k, v] = kv.split('=')
+      return [k, v]
+    }),
+  )
+}
+
 // blockstates の variants キーはサブセットでもマッチする場合がある
 // 例: "facing=north" が "facing=north,powered=false" にマッチ
 function findVariant(
@@ -123,14 +133,40 @@ function findVariant(
   // 部分一致: variants のキーが state のサブセットであればマッチ
   for (const [key, variant] of Object.entries(variants)) {
     if (key === '') continue
-    const kvs = key.split(',')
-    const matches = kvs.every(kv => {
-      const [k, v] = kv.split('=')
-      return state[k] === v
-    })
+    const variantState = parseStateKey(key)
+    const matches = Object.entries(variantState).every(([k, v]) => state[k] === v)
     if (matches) {
       return Array.isArray(variant) ? variant[0] : variant
     }
+  }
+
+  // 互換一致: state 側で指定された値が variant と矛盾しない候補から、
+  // 最も多くの指定値に一致する variant を選ぶ。
+  // 例: piston は extended が未指定でも facing=east の候補を選びたい。
+  let bestVariant: BlockstatesVariant | BlockstatesVariant[] | null = null
+  let bestScore = 0
+  for (const [key, variant] of Object.entries(variants)) {
+    if (key === '') continue
+    const variantState = parseStateKey(key)
+    let score = 0
+    let compatible = true
+
+    for (const [k, v] of Object.entries(state)) {
+      if (variantState[k] === undefined) continue
+      if (variantState[k] !== v) {
+        compatible = false
+        break
+      }
+      score++
+    }
+
+    if (compatible && score > bestScore) {
+      bestVariant = variant
+      bestScore = score
+    }
+  }
+  if (bestVariant) {
+    return Array.isArray(bestVariant) ? bestVariant[0] : bestVariant
   }
 
   // state に対応するキーが見つからない場合は最初のエントリを使う
@@ -292,8 +328,7 @@ function applyFaceUvs(
 }
 
 export interface BlockMeshData {
-  geometry: THREE.BoxGeometry
-  materials: THREE.MeshLambertMaterial[]
+  object: THREE.Object3D
   rotation: [number, number, number]
 }
 
@@ -312,6 +347,63 @@ const TRANSPARENT_BLOCKS = new Set([
 
 function isTransparent(blockId: string): boolean {
   return TRANSPARENT_BLOCKS.has(blockId) || blockId.includes('glass') || blockId.includes('leaves')
+}
+
+function createHiddenMaterial(): THREE.MeshLambertMaterial {
+  return new THREE.MeshLambertMaterial({
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+  })
+}
+
+async function buildObjectFromElements(
+  elements: ModelElement[],
+  model: ModelJson,
+  loader: IAssetLoader,
+  transparent: boolean,
+): Promise<THREE.Object3D | null> {
+  const group = new THREE.Group()
+  const textures = model.textures ?? {}
+
+  for (const el of elements) {
+    const width = (el.to[0] - el.from[0]) / 16
+    const height = (el.to[1] - el.from[1]) / 16
+    const depth = (el.to[2] - el.from[2]) / 16
+    if (width <= 0 || height <= 0 || depth <= 0) continue
+
+    const geometry = new THREE.BoxGeometry(width, height, depth)
+    const faceMap: Partial<Record<BoxFace, FaceTextureInfo>> = {}
+
+    for (const [face, faceData] of Object.entries(el.faces ?? {})) {
+      const boxFace = MC_FACE_TO_BOX[face]
+      if (!boxFace) continue
+      faceMap[boxFace] = {
+        texture: resolveTexVar(faceData.texture, textures),
+        uv: faceData.uv,
+        rotation: faceData.rotation,
+      }
+    }
+
+    applyFaceUvs(geometry, faceMap)
+
+    const materials = await Promise.all(BOX_FACES.map(async face => {
+      const texVar = faceMap[face]?.texture
+      if (!texVar) return createHiddenMaterial()
+      const resolved = resolveTexVar(texVar, textures)
+      return texPathToMaterial(resolved, loader, transparent)
+    }))
+
+    const mesh = new THREE.Mesh(geometry, materials)
+    mesh.position.set(
+      ((el.from[0] + el.to[0]) / 2 - 8) / 16,
+      ((el.from[1] + el.to[1]) / 2 - 8) / 16,
+      ((el.from[2] + el.to[2]) / 2 - 8) / 16,
+    )
+    group.add(mesh)
+  }
+
+  return group.children.length > 0 ? group : null
 }
 
 // ── メインエクスポート ─────────────────────────────────────────────
@@ -369,9 +461,20 @@ export async function buildBlockMeshData(
   if (!faceTexMap) {
     console.warn(`[BlockTexture] Could not resolve faces for: ${blockId}`)
     const missingMat = new THREE.MeshLambertMaterial({ map: MISSING_TEXTURE })
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), Array(6).fill(missingMat))
     return {
-      geometry: new THREE.BoxGeometry(1, 1, 1),
-      materials: Array(6).fill(missingMat),
+      object: mesh,
+      rotation: [THREE.MathUtils.degToRad(-rotX), THREE.MathUtils.degToRad(-rotY), 0],
+    }
+  }
+
+  const object = model.elements && model.elements.length > 0
+    ? await buildObjectFromElements(model.elements, model, loader, transparent)
+    : null
+
+  if (object) {
+    return {
+      object,
       rotation: [THREE.MathUtils.degToRad(-rotX), THREE.MathUtils.degToRad(-rotY), 0],
     }
   }
@@ -391,9 +494,11 @@ export async function buildBlockMeshData(
   applyFaceUvs(geometry, faceTexMap)
 
   return {
-    geometry,
-    // BoxGeometry の面順: +X(east), -X(west), +Y(up), -Y(down), +Z(south), -Z(north)
-    materials: BOX_FACES.map(face => materialsByFace[face] ?? new THREE.MeshLambertMaterial({ map: MISSING_TEXTURE })),
+    object: new THREE.Mesh(
+      geometry,
+      // BoxGeometry の面順: +X(east), -X(west), +Y(up), -Y(down), +Z(south), -Z(north)
+      BOX_FACES.map(face => materialsByFace[face] ?? new THREE.MeshLambertMaterial({ map: MISSING_TEXTURE })),
+    ),
     rotation: [THREE.MathUtils.degToRad(-rotX), THREE.MathUtils.degToRad(-rotY), 0],
   }
 }

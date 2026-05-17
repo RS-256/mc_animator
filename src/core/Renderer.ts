@@ -16,7 +16,7 @@ function parseARGB(hex: string): { r: number; g: number; b: number; a: number } 
 }
 
 interface BlockMeshEntry {
-  mesh: THREE.Mesh
+  object: THREE.Object3D
   blockId: string
   stateKey: string
 }
@@ -63,7 +63,10 @@ export class SceneRenderer {
   async loadSchema(schema: AnimationSchema, loader: IAssetLoader) {
     this.schema = schema
     this.textureLoader = loader
-    this.blockMeshes.forEach(entry => this.scene.remove(entry.mesh))
+    this.blockMeshes.forEach(entry => {
+      this.scene.remove(entry.object)
+      this.disposeObject(entry.object)
+    })
     this.blockMeshes.clear()
 
     // 背景色設定
@@ -72,6 +75,16 @@ export class SceneRenderer {
     this.renderer.setClearColor(new THREE.Color(r, g, b), a)
 
     await this.updateScene(0)
+  }
+
+  private disposeObject(object: THREE.Object3D) {
+    object.traverse(child => {
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose()
+        const materials = Array.isArray(child.material) ? child.material : [child.material]
+        materials.forEach(material => material.dispose())
+      }
+    })
   }
 
   async updateScene(tick: number) {
@@ -93,8 +106,8 @@ export class SceneRenderer {
     // 不要なメッシュを削除
     for (const [id, entry] of this.blockMeshes) {
       if (!activeIds.has(id)) {
-        this.scene.remove(entry.mesh)
-        entry.mesh.geometry.dispose()
+        this.scene.remove(entry.object)
+        this.disposeObject(entry.object)
         this.blockMeshes.delete(id)
       }
     }
@@ -106,12 +119,12 @@ export class SceneRenderer {
 
       if (existing && existing.blockId === blockState.block && existing.stateKey === stateKey) {
         // テクスチャ変化なし、位置だけ更新
-        existing.mesh.position.set(...blockState.pos)
+        existing.object.position.set(...blockState.pos)
       } else {
         // メッシュを再生成
         if (existing) {
-          this.scene.remove(existing.mesh)
-          existing.mesh.geometry.dispose()
+          this.scene.remove(existing.object)
+          this.disposeObject(existing.object)
         }
 
         const meshData = await buildBlockMeshData(
@@ -123,11 +136,11 @@ export class SceneRenderer {
         // air 等は null が返るのでスキップ
         if (!meshData) continue
 
-        const mesh = new THREE.Mesh(meshData.geometry, meshData.materials)
-        mesh.position.set(...blockState.pos)
-        mesh.rotation.set(...meshData.rotation)
-        this.scene.add(mesh)
-        this.blockMeshes.set(id, { mesh, blockId: blockState.block, stateKey })
+        const object = meshData.object
+        object.position.set(...blockState.pos)
+        object.rotation.set(...meshData.rotation)
+        this.scene.add(object)
+        this.blockMeshes.set(id, { object, blockId: blockState.block, stateKey })
       }
     }
 
@@ -169,8 +182,8 @@ export class SceneRenderer {
   dispose() {
     this.stopPreview()
     this.blockMeshes.forEach(e => {
-      this.scene.remove(e.mesh)
-      e.mesh.geometry.dispose()
+      this.scene.remove(e.object)
+      this.disposeObject(e.object)
     })
     this.renderer.dispose()
   }
