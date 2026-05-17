@@ -80,12 +80,14 @@ export function resolveBlock(
   let block: string | null = null
   let state: BlockState = {}
   let pos: [number, number, number] = [0, 0, 0]
+  let multiplier = 1
 
   for (let i = 0; i <= prevIdx; i++) {
     const kf = kfs[i]
     if (kf.block !== undefined) block = kf.block
     if (kf.state !== undefined) state = { ...state, ...kf.state }
     if (kf.pos !== undefined) pos = kf.pos
+    if (kf.multiplier !== undefined) multiplier = kf.multiplier
   }
 
   if (block === null) return null // 削除済み
@@ -97,6 +99,8 @@ export function resolveBlock(
     const next = kfs[nextIdx]
     const prevPos = resolveFieldAt<[number, number, number]>(kfs, prevIdx, 'pos', [0, 0, 0])
     const nextPos = resolveFieldAt<[number, number, number]>(kfs, nextIdx, 'pos', prevPos)
+    const prevMultiplier = resolveFieldAt<number>(kfs, prevIdx, 'multiplier', 1)
+    const nextMultiplier = resolveFieldAt<number>(kfs, nextIdx, 'multiplier', prevMultiplier)
 
     const duration = next._absoluteTick - prev._absoluteTick
     if (duration > 0) {
@@ -104,10 +108,11 @@ export function resolveBlock(
       const easing = next.easing ?? 'linear'
       const t = applyEasing(rawT, easing)
       pos = lerpVec3(prevPos, nextPos, t)
+      multiplier = lerpNumber(prevMultiplier, nextMultiplier, t)
     }
   }
 
-  return { visible: true, block, state, pos }
+  return { visible: true, block, state, pos, multiplier }
 }
 
 // キーフレーム配列からフィールドを遡って解決するヘルパー

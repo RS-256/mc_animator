@@ -118,8 +118,9 @@ export class SceneRenderer {
       const existing = this.blockMeshes.get(id)
 
       if (existing && existing.blockId === blockState.block && existing.stateKey === stateKey) {
-        // テクスチャ変化なし、位置だけ更新
+        // テクスチャ変化なし、変換だけ更新
         existing.object.position.set(...blockState.pos)
+        existing.object.scale.setScalar(blockState.multiplier)
       } else {
         // メッシュを再生成
         if (existing) {
@@ -138,6 +139,7 @@ export class SceneRenderer {
 
         const object = meshData.object
         object.position.set(...blockState.pos)
+        object.scale.setScalar(blockState.multiplier)
         object.rotation.set(...meshData.rotation)
         this.scene.add(object)
         this.blockMeshes.set(id, { object, blockId: blockState.block, stateKey })

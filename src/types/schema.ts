@@ -21,6 +21,7 @@ export interface BlockKeyframe {
   block?: string | null         // null で削除
   state?: BlockState
   pos?: [number, number, number]
+  multiplier?: number           // ブロック一辺の倍率。デフォルト: 1
   easing?: EasingType
 }
 
@@ -89,6 +90,7 @@ export interface ResolvedBlockState {
   block: string
   state: BlockState
   pos: [number, number, number]
+  multiplier: number
 }
 
 export interface ResolvedCameraState {

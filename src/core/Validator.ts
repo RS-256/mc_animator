@@ -96,7 +96,8 @@ export function validate(data: unknown): ValidationResult {
       for (let k = 0; k < obj.keyframes.length; k++) {
         const kf = obj.keyframes[k]
         if (typeof kf !== 'object' || kf === null || Array.isArray(kf)) continue
-        const easing = (kf as Record<string, unknown>).easing
+        const keyframe = kf as Record<string, unknown>
+        const easing = keyframe.easing
         if (
           easing !== undefined &&
           (typeof easing !== 'string' || !(SUPPORTED_EASINGS as readonly string[]).includes(easing))
@@ -105,6 +106,15 @@ export function validate(data: unknown): ValidationResult {
             severity: 'error',
             message: `"${id}" の keyframes[${k}].easing は ${SUPPORTED_EASINGS.join(', ')} のいずれかで指定してください`,
           })
+        }
+        if (obj.type === 'block' && keyframe.multiplier !== undefined) {
+          const multiplier = keyframe.multiplier
+          if (typeof multiplier !== 'number' || !Number.isFinite(multiplier) || multiplier < 0) {
+            msgs.push({
+              severity: 'error',
+              message: `"${id}" の keyframes[${k}].multiplier は 0 以上の数値で指定してください`,
+            })
+          }
         }
       }
     }
