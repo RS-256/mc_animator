@@ -25,11 +25,21 @@ function stepFwd()  { stopPlay(); setTick(currentTick.value + ticksPerFrame.valu
   <div class="timeline">
     <div class="timeline__controls">
       <button class="ctrl-btn" title="先頭" @click="goStart">⏮</button>
-      <button class="ctrl-btn" title="-1 frame" @click="stepBack">◀</button>
+      <button class="ctrl-btn" title="-1 frame" @click="stepBack">
+        <span class="step-icon step-icon--back" aria-hidden="true">
+          <span class="step-icon__triangle"></span>
+          <span class="step-icon__bar"></span>
+        </span>
+      </button>
       <button class="ctrl-btn play" :class="{ playing: isPlaying }" @click="togglePlay">
         {{ isPlaying ? '⏸' : '▶' }}
       </button>
-      <button class="ctrl-btn" title="+1 frame" @click="stepFwd">▶</button>
+      <button class="ctrl-btn" title="+1 frame" @click="stepFwd">
+        <span class="step-icon step-icon--fwd" aria-hidden="true">
+          <span class="step-icon__bar"></span>
+          <span class="step-icon__triangle"></span>
+        </span>
+      </button>
       <button class="ctrl-btn" title="末尾" @click="goEnd">⏭</button>
     </div>
 
@@ -87,6 +97,37 @@ function stepFwd()  { stopPlay(); setTick(currentTick.value + ticksPerFrame.valu
 .ctrl-btn.play.playing {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.step-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 14px;
+  height: 12px;
+}
+
+.step-icon__bar {
+  width: 2px;
+  height: 14px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.step-icon__triangle {
+  width: 0;
+  height: 0;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+}
+
+.step-icon--back .step-icon__triangle {
+  border-right: 10px solid currentColor;
+}
+
+.step-icon--fwd .step-icon__triangle {
+  border-left: 10px solid currentColor;
 }
 
 .timeline__scrubber {
