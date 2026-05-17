@@ -14,6 +14,11 @@ The app renders frames in the browser as PNG images. PNG frames are kept as the 
 Browser video encoding is CPU and memory heavy. If a browser export is too slow or unsupported, export the PNG sequence and encode it locally with ffmpeg.
 Browser H.264/H.265 export requires WebCodecs support, which is best in Chromium-based browsers. H.265 support is more OS/GPU dependent than H.264. Local ffmpeg commands below use slower presets for better compression.
 
+For video formats, the arrow beside the render button lets you choose between:
+
+- Direct video download
+- PNG sequence package with `encode_windows.bat`, `encode_unix.sh`, and `README.txt`
+
 PNG sequence exports contain:
 
 ```text

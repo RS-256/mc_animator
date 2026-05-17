@@ -9,9 +9,11 @@ import type { AnimationSchema } from '../types/schema'
 import type { SceneRenderer } from './Renderer'
 
 export type ExportFormat = 'png_zip' | 'mkv_ffv1' | 'mp4_h264' | 'mp4_h265'
+export type ExportMode = 'direct' | 'local_package'
 
 export interface ExportOptions {
   format: ExportFormat
+  mode?: ExportMode
   onProgress?: (current: number, total: number) => void
   onCancel?: () => boolean
 }
@@ -19,6 +21,7 @@ export interface ExportOptions {
 interface ExportPreset {
   label: string
   downloadName: string
+  localPackageName?: string
   framePath: (frameNum: string) => string
   video?: {
     outputName: string
@@ -41,6 +44,7 @@ function buildPreset(format: ExportFormat): ExportPreset {
       return {
         label: 'Lossless MKV / FFV1',
         downloadName: 'mc_animator_lossless.mkv',
+        localPackageName: 'mc_animator_mkv_ffv1_package.zip',
         framePath: frameNum => `frames/frame_${frameNum}.png`,
         video: {
           outputName: 'output_lossless.mkv',
@@ -72,6 +76,7 @@ function buildPreset(format: ExportFormat): ExportPreset {
       return {
         label: 'MP4 / H.264',
         downloadName: 'mc_animator_h264.mp4',
+        localPackageName: 'mc_animator_mp4_h264_package.zip',
         framePath: frameNum => `frames/frame_${frameNum}.png`,
         video: {
           outputName: 'output_h264.mp4',
@@ -115,6 +120,7 @@ function buildPreset(format: ExportFormat): ExportPreset {
       return {
         label: 'MP4 / H.265',
         downloadName: 'mc_animator_h265.mp4',
+        localPackageName: 'mc_animator_mp4_h265_package.zip',
         framePath: frameNum => `frames/frame_${frameNum}.png`,
         video: {
           outputName: 'output_h265.mp4',
@@ -267,8 +273,9 @@ export async function exportAnimation(
 
   const zip = new JSZip()
   const preset = buildPreset(options.format)
+  const useLocalPackage = options.mode === 'local_package' && preset.video
 
-  if (preset.video) {
+  if (preset.video && !useLocalPackage) {
     if (options.format === 'mp4_h264') {
       await exportH264Mp4WithWebCodecs(schema, renderer, preset, totalFrames, ticksPerFrame, options)
       return
@@ -298,7 +305,7 @@ export async function exportAnimation(
   if (preset.unixScript) zip.file('encode_unix.sh', preset.unixScript(fps))
 
   const zipBlob = await zip.generateAsync({ type: 'blob' })
-  downloadBlob(zipBlob, preset.downloadName)
+  downloadBlob(zipBlob, useLocalPackage ? (preset.localPackageName ?? preset.downloadName) : preset.downloadName)
 }
 
 async function exportH264Mp4WithWebCodecs(
