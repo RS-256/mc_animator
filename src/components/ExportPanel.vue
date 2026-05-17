@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useAppState } from '../composables/useAppState'
-import { exportAnimation } from '../core/Exporter'
+import { exportAnimation, type ExportFormat } from '../core/Exporter'
 import { SceneRenderer } from '../core/Renderer'
 
 const {
@@ -12,7 +12,7 @@ const {
   _exportProgress: exportProgress,
 } = useAppState()
 
-const format = ref<'png_zip'>('png_zip')
+const format = ref<ExportFormat>('png_zip')
 let cancelFlag = false
 
 async function startExport() {
@@ -62,7 +62,9 @@ const progressPct = () =>
       <label class="small-label">出力形式</label>
       <select v-model="format" class="format-select" :disabled="isExporting">
         <option value="png_zip">PNG シーケンス + ZIP</option>
-        <!-- 後期実装: <option value="h265">H.265 / MP4</option> -->
+        <option value="mkv_ffv1">ロスレス MKV / FFV1 変換パッケージ</option>
+        <option value="mp4_h264">MP4 / H.264 変換パッケージ</option>
+        <option value="mp4_h265">MP4 / H.265 変換パッケージ</option>
       </select>
     </div>
 
