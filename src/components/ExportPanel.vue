@@ -24,7 +24,7 @@ async function startExport() {
   offscreen.width = w
   offscreen.height = h
 
-  const renderer = new SceneRenderer(offscreen)
+  const renderer = new SceneRenderer(offscreen, { pixelRatio: 1 })
   renderer.setSize(w, h)
   await renderer.loadSchema(schema.value, zipLoader)
 
@@ -40,6 +40,9 @@ async function startExport() {
       },
       onCancel: () => cancelFlag,
     })
+  } catch (error) {
+    console.error(error)
+    alert(error instanceof Error ? error.message : 'エクスポートに失敗しました。')
   } finally {
     renderer.dispose()
     isExporting.value = false

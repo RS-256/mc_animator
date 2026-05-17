@@ -21,6 +21,10 @@ interface BlockMeshEntry {
   stateKey: string
 }
 
+interface SceneRendererOptions {
+  pixelRatio?: number
+}
+
 export class SceneRenderer {
   public renderer: THREE.WebGLRenderer
   private scene: THREE.Scene
@@ -33,9 +37,9 @@ export class SceneRenderer {
 
   private currentTick = 0
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, options: SceneRendererOptions = {}) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true })
-    this.renderer.setPixelRatio(window.devicePixelRatio)
+    this.renderer.setPixelRatio(options.pixelRatio ?? window.devicePixelRatio)
     this.renderer.setClearColor(0x000000, 0)
 
     this.scene = new THREE.Scene()

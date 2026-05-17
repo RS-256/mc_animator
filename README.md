@@ -4,23 +4,22 @@ Minecraft-style animation renderer built with Vue, TypeScript, Vite, and Three.j
 
 ## Export formats
 
-The app renders frames in the browser as PNG images. PNG frames are kept as the lossless source, and video-oriented export options include local ffmpeg scripts so encoding can be done outside the browser when it is heavy.
+The app renders frames in the browser as PNG images. PNG frames are kept as the lossless source. H.264/H.265 MP4 exports use WebCodecs when available, while lossless MKV/FFV1 export uses ffmpeg.wasm.
 
 - PNG sequence + ZIP
-- Lossless MKV / FFV1 conversion package
-- MP4 / H.264 conversion package
-- MP4 / H.265 conversion package
+- Lossless MKV / FFV1
+- MP4 / H.264
+- MP4 / H.265
 
-Video conversion packages contain:
+Browser video encoding is CPU and memory heavy. If a browser export is too slow or unsupported, export the PNG sequence and encode it locally with ffmpeg.
+Browser H.264/H.265 export requires WebCodecs support, which is best in Chromium-based browsers. H.265 support is more OS/GPU dependent than H.264. Local ffmpeg commands below use slower presets for better compression.
+
+PNG sequence exports contain:
 
 ```text
-frames/
-  frame_0001.png
-  frame_0002.png
-  ...
-README.txt
-encode_windows.bat
-encode_unix.sh
+frame_0001.png
+frame_0002.png
+...
 ```
 
 ## Local video encoding
@@ -45,7 +44,7 @@ MP4 / H.265:
 ffmpeg -framerate 30 -i "frames/frame_%04d.png" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx265 -preset slow -crf 20 -tag:v hvc1 -pix_fmt yuv420p "output_h265.mp4"
 ```
 
-Replace `30` with the animation FPS when needed. The generated package scripts already use the FPS from the loaded animation schema.
+Replace `30` with the animation FPS when needed.
 
 Notes:
 
