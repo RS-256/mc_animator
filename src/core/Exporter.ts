@@ -8,7 +8,7 @@ import type { LogEvent } from '@ffmpeg/ffmpeg'
 import type { AnimationSchema } from '../types/schema'
 import type { SceneRenderer } from './Renderer'
 
-export type ExportFormat = 'png_zip' | 'mkv_ffv1' | 'mp4_h264' | 'mp4_h265'
+export type ExportFormat = 'png_zip' | 'mkv_ffv1' | 'mp4_h264' | 'mp4_h265' | 'mp4_av1'
 export type ExportMode = 'direct' | 'local_package'
 
 export interface ExportOptions {
@@ -151,6 +151,41 @@ function buildPreset(format: ExportFormat): ExportPreset {
           `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_UNIX}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx265 -preset slow -crf 20 -tag:v hvc1 -pix_fmt yuv420p "output_h265.mp4"`,
         ].join('\n'),
       }
+    case 'mp4_av1':
+      return {
+        label: 'MP4 / AV1',
+        downloadName: 'mc_animator_av1.mp4',
+        localPackageName: 'mc_animator_mp4_av1_package.zip',
+        framePath: frameNum => `frames/frame_${frameNum}.png`,
+        video: {
+          outputName: 'output_av1.mp4',
+          mimeType: 'video/mp4',
+          ffmpegArgs: (fps, inputPattern, outputName) => [
+            '-framerate', String(fps),
+            '-start_number', '1',
+            '-i', inputPattern,
+            '-vf', 'pad=ceil(iw/2)*2:ceil(ih/2)*2',
+            '-c:v', 'libaom-av1',
+            '-crf', '30',
+            '-b:v', '0',
+            '-cpu-used', '4',
+            '-pix_fmt', 'yuv420p',
+            outputName,
+          ],
+        },
+        readme: fps => videoReadme('MP4 / AV1', fps, 'output_av1.mp4'),
+        windowsScript: fps => [
+          '@echo off',
+          'setlocal',
+          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_WINDOWS}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 4 -pix_fmt yuv420p "output_av1.mp4"`,
+          'pause',
+        ].join('\r\n'),
+        unixScript: fps => [
+          '#!/usr/bin/env sh',
+          'set -eu',
+          `ffmpeg -framerate ${fps} -i "${VIDEO_INPUT_UNIX}" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 4 -pix_fmt yuv420p "output_av1.mp4"`,
+        ].join('\n'),
+      }
     case 'png_zip':
     default:
       return {
@@ -185,12 +220,16 @@ function videoReadme(label: string, fps: number, outputName: string): string {
     '',
     '- The PNG frames are the lossless source. Keep them if you may re-encode later.',
     '- FFV1/MKV is intended for lossless archival output.',
-    '- H.264/H.265 MP4 outputs are practical delivery formats and do not preserve alpha transparency.',
+    '- H.264/H.265/AV1 MP4 outputs are practical delivery formats and do not preserve alpha transparency.',
+    '- AV1 local encoding requires an ffmpeg build with an AV1 encoder such as libaom-av1.',
   ].join('\n')
 }
 
 function ffmpegArgsForReadme(label: string): string {
   if (label.includes('FFV1')) return '-c:v ffv1 -level 3 -pix_fmt rgba'
+  if (label.includes('AV1')) {
+    return '-vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 4 -pix_fmt yuv420p'
+  }
   if (label.includes('H.265')) {
     return '-vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx265 -preset slow -crf 20 -tag:v hvc1 -pix_fmt yuv420p'
   }
@@ -282,6 +321,10 @@ export async function exportAnimation(
     }
     if (options.format === 'mp4_h265') {
       await exportH265Mp4WithWebCodecs(schema, renderer, preset, totalFrames, ticksPerFrame, options)
+      return
+    }
+    if (options.format === 'mp4_av1') {
+      await exportAV1Mp4WithWebCodecs(schema, renderer, preset, totalFrames, ticksPerFrame, options)
       return
     }
     await exportEncodedVideo(schema, renderer, preset, totalFrames, ticksPerFrame, options)
@@ -378,8 +421,43 @@ async function exportH265Mp4WithWebCodecs(
   })
 }
 
+async function exportAV1Mp4WithWebCodecs(
+  schema: AnimationSchema,
+  renderer: SceneRenderer,
+  preset: ExportPreset,
+  totalFrames: number,
+  ticksPerFrame: number,
+  options: ExportOptions,
+): Promise<void> {
+  if (!('VideoEncoder' in window) || !('VideoFrame' in window)) {
+    throw new Error('このブラウザは WebCodecs に対応していないため、AV1 MP4 を直接エンコードできません。')
+  }
+
+  const { fps, resolution } = schema.metadata
+  const [width, height] = resolution
+  const bitrate = Math.max(600_000, Math.round(width * height * fps * 0.035))
+  const support = await findSupportedAV1Config(width, height, fps, bitrate)
+  if (!support) {
+    throw new Error('このブラウザは現在の設定で AV1 WebCodecs エンコードに対応していません。PNGシーケンスからローカル ffmpeg で変換してください。')
+  }
+
+  await exportMp4WithWebCodecs({
+    codec: 'av1',
+    mimeType: 'video/mp4',
+    downloadName: preset.downloadName,
+    renderer,
+    totalFrames,
+    ticksPerFrame,
+    options,
+    width,
+    height,
+    fps,
+    config: support.config,
+  })
+}
+
 interface WebCodecsMp4ExportOptions {
-  codec: 'avc' | 'hevc'
+  codec: 'avc' | 'hevc' | 'av1'
   mimeType: string
   downloadName: string
   renderer: SceneRenderer
@@ -495,6 +573,36 @@ async function findSupportedH265Config(
     'hev1.1.6.L150.B0',
     'hev1.1.6.L123.B0',
     'hev1.1.6.L120.B0',
+  ]
+
+  for (const codec of codecCandidates) {
+    const support = await VideoEncoder.isConfigSupported({
+      codec,
+      width,
+      height,
+      framerate: fps,
+      bitrate,
+      hardwareAcceleration: 'prefer-hardware',
+    })
+
+    if (support.supported && support.config) return { config: support.config }
+  }
+
+  return null
+}
+
+async function findSupportedAV1Config(
+  width: number,
+  height: number,
+  fps: number,
+  bitrate: number,
+): Promise<SupportedH264Config | null> {
+  const codecCandidates = [
+    'av01.0.13M.08',
+    'av01.0.12M.08',
+    'av01.0.09M.08',
+    'av01.0.08M.08',
+    'av01.0.05M.08',
   ]
 
   for (const codec of codecCandidates) {

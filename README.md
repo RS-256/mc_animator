@@ -4,15 +4,16 @@ Minecraft-style animation renderer built with Vue, TypeScript, Vite, and Three.j
 
 ## Export formats
 
-The app renders frames in the browser as PNG images. PNG frames are kept as the lossless source. H.264/H.265 MP4 exports use WebCodecs when available, while lossless MKV/FFV1 export uses ffmpeg.wasm.
+The app renders frames in the browser as PNG images. PNG frames are kept as the lossless source. H.264/H.265/AV1 MP4 exports use WebCodecs when available, while lossless MKV/FFV1 export uses ffmpeg.wasm.
 
 - PNG sequence + ZIP
 - Lossless MKV / FFV1
 - MP4 / H.264
 - MP4 / H.265
+- MP4 / AV1
 
 Browser video encoding is CPU and memory heavy. If a browser export is too slow or unsupported, export the PNG sequence and encode it locally with ffmpeg.
-Browser H.264/H.265 export requires WebCodecs support, which is best in Chromium-based browsers. H.265 support is more OS/GPU dependent than H.264. Local ffmpeg commands below use slower presets for better compression.
+Browser H.264/H.265/AV1 export requires WebCodecs support, which is best in Chromium-based browsers. H.265 and AV1 support are more OS/GPU dependent than H.264. The bundled ffmpeg.wasm core does not include a practical AV1 encoder, so AV1 direct export uses WebCodecs. Local ffmpeg commands below use slower presets for better compression.
 
 For video formats, the arrow beside the render button lets you choose between:
 
@@ -49,12 +50,19 @@ MP4 / H.265:
 ffmpeg -framerate 30 -i "frames/frame_%04d.png" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libx265 -preset slow -crf 20 -tag:v hvc1 -pix_fmt yuv420p "output_h265.mp4"
 ```
 
+MP4 / AV1:
+
+```bash
+ffmpeg -framerate 30 -i "frames/frame_%04d.png" -vf "pad=ceil(iw/2)*2:ceil(ih/2)*2" -c:v libaom-av1 -crf 30 -b:v 0 -cpu-used 4 -pix_fmt yuv420p "output_av1.mp4"
+```
+
 Replace `30` with the animation FPS when needed.
 
 Notes:
 
 - FFV1/MKV is intended for lossless archival output.
-- H.264/H.265 MP4 outputs are practical delivery formats and do not preserve alpha transparency.
+- H.264/H.265/AV1 MP4 outputs are practical delivery formats and do not preserve alpha transparency.
+- AV1 local encoding requires an ffmpeg build with an AV1 encoder such as `libaom-av1`.
 - Keep the PNG sequence if you may re-encode later.
 
 ## Development

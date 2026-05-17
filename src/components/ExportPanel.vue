@@ -88,6 +88,7 @@ const progressPct = () =>
         <option value="mkv_ffv1">ロスレス MKV / FFV1</option>
         <option value="mp4_h264">MP4 / H.264</option>
         <option value="mp4_h265">MP4 / H.265</option>
+        <option value="mp4_av1">MP4 / AV1</option>
       </select>
     </div>
 
