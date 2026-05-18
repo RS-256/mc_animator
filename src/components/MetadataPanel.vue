@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAppState } from '../composables/useAppState'
+import type { GizmoSettings } from '../types/schema'
 
 const { schema, totalFrames, updateMetadata } = useAppState()
 
@@ -26,6 +27,33 @@ function onAlphaChange(e: Event) {
   const aa = alpha.toString(16).padStart(2, '0').toUpperCase()
   const rrggbb = bgARGB.value.slice(3)
   bgARGB.value = `#${aa}${rrggbb}`
+}
+
+function defaultGizmo(): GizmoSettings {
+  return {
+    visible: false,
+    origin: [64, 64],
+  }
+}
+
+function updateGizmo(value: Partial<GizmoSettings>) {
+  const current = meta.value?.gizmo ?? defaultGizmo()
+  updateMetadata('gizmo', {
+    ...current,
+    ...value,
+    origin: value.origin ?? [...current.origin],
+  })
+}
+
+function onGizmoVisibleChange(e: Event) {
+  updateGizmo({ visible: (e.target as HTMLInputElement).checked })
+}
+
+function onGizmoOriginChange(index: 0 | 1, e: Event) {
+  const current = meta.value?.gizmo ?? defaultGizmo()
+  const origin: [number, number] = [...current.origin]
+  origin[index] = +(e.target as HTMLInputElement).value
+  updateGizmo({ origin })
 }
 </script>
 
@@ -84,6 +112,37 @@ function onAlphaChange(e: Event) {
               <input type="range" min="0" max="255" :value="bgAlpha" @input="onAlphaChange" />
             </div>
             <code class="argb-code">{{ bgARGB }}</code>
+          </div>
+        </div>
+
+        <div class="field gizmo-field">
+          <label class="checkbox-row">
+            <input
+              type="checkbox"
+              :checked="meta.gizmo?.visible ?? false"
+              @change="onGizmoVisibleChange"
+            />
+            Gizmo を表示
+          </label>
+          <div class="field row">
+            <div>
+              <label>起点 X</label>
+              <input
+                type="number"
+                :value="meta.gizmo?.origin[0] ?? 64"
+                step="1"
+                @change="onGizmoOriginChange(0, $event)"
+              />
+            </div>
+            <div>
+              <label>起点 Y</label>
+              <input
+                type="number"
+                :value="meta.gizmo?.origin[1] ?? 64"
+                step="1"
+                @change="onGizmoOriginChange(1, $event)"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -210,6 +269,24 @@ input[type='number']:focus {
 input[type='range'] {
   width: 100%;
   accent-color: var(--accent);
+}
+
+input[type='checkbox'] {
+  accent-color: var(--accent);
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.gizmo-field {
+  border-top: 1px solid var(--border);
+  margin-top: 0.25rem;
+  padding-top: 0.6rem;
 }
 
 .argb-code {

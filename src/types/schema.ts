@@ -61,6 +61,12 @@ export interface Metadata {
   duration_ticks: number
   background_color?: string     // '#AARRGGBB' 形式、デフォルト '#00000000'
   active_camera?: string        // デフォルト '__camera__'
+  gizmo?: GizmoSettings         // プレビューUI専用。レンダリング出力には含めない
+}
+
+export interface GizmoSettings {
+  visible: boolean
+  origin: [number, number]
 }
 
 // ルートスキーマ

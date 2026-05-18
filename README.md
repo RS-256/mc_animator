@@ -51,6 +51,24 @@ Supported easing values:
 
 Easing is applied to block `pos` interpolation and camera `pos`, `look_at`, and `fov` interpolation. Keyframes without `easing` use `linear`.
 
+## Preview gizmo
+
+The preview can show a UI-only Minecraft axis gizmo. It is drawn over the browser preview and is not included in PNG or video exports.
+It is hidden by default.
+
+```json
+{
+  "metadata": {
+    "gizmo": {
+      "visible": true,
+      "origin": [64, 64]
+    }
+  }
+}
+```
+
+`origin` is specified in render-frame screen pixels from the top-left corner. The axis directions follow the active camera: +X is red, +Z is blue, and +Y is yellow-green.
+
 ## Samples
 
 Example animation JSON files are available in [`samples/`](samples/). They include small beginner-friendly scenes, camera and easing examples, and a broader showcase that uses all currently supported core tags.

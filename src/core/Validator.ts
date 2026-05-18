@@ -45,6 +45,27 @@ export function validate(data: unknown): ValidationResult {
     }
   }
 
+  if (meta.gizmo !== undefined) {
+    if (typeof meta.gizmo !== 'object' || meta.gizmo === null || Array.isArray(meta.gizmo)) {
+      msgs.push({ severity: 'error', message: 'metadata.gizmo はオブジェクトで指定してください' })
+    } else {
+      const gizmo = meta.gizmo as Record<string, unknown>
+      if (typeof gizmo.visible !== 'boolean') {
+        msgs.push({ severity: 'error', message: 'metadata.gizmo.visible は true または false で指定してください' })
+      }
+      if (
+        !Array.isArray(gizmo.origin) ||
+        gizmo.origin.length !== 2 ||
+        typeof gizmo.origin[0] !== 'number' ||
+        typeof gizmo.origin[1] !== 'number' ||
+        !Number.isFinite(gizmo.origin[0]) ||
+        !Number.isFinite(gizmo.origin[1])
+      ) {
+        msgs.push({ severity: 'error', message: 'metadata.gizmo.origin は [x, y] の数値配列で指定してください' })
+      }
+    }
+  }
+
   // フレーム数上限チェック
   const fps = typeof meta.fps === 'number' ? meta.fps : 0
   const tps = typeof meta.ticks_per_second === 'number' ? meta.ticks_per_second : 20
