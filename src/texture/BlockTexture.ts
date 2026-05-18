@@ -330,6 +330,7 @@ function applyFaceUvs(
 export interface BlockMeshData {
   object: THREE.Object3D
   rotation: [number, number, number]
+  iconView?: 'isometric' | 'front'
 }
 
 // ── air / transparent 判定 ────────────────────────────────────────
@@ -414,6 +415,27 @@ export const AIR_BLOCKS = new Set([
   'minecraft:void_air',
 ])
 
+export function isAirBlockId(blockId: string | null | undefined): boolean {
+  if (!blockId) return true
+  const normalized = blockId.replace(/^minecraft:/, '')
+  return normalized === 'air' || normalized === 'cave_air' || normalized === 'void_air'
+}
+
+async function buildFlatItemObject(
+  model: ModelJson,
+  loader: IAssetLoader,
+): Promise<THREE.Object3D | null> {
+  const textures = model.textures ?? {}
+  const layer0 = textures['layer0'] ? resolveTexVar(textures['layer0'], textures) : null
+  if (!layer0) return null
+
+  const material = await texPathToMaterial(layer0, loader, true)
+  material.side = THREE.DoubleSide
+
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), material)
+  return mesh
+}
+
 /**
  * ブロック ID + state からジオメトリ、6 面分の MeshLambertMaterial、モデル回転を返す。
  * air 系は null を返す（メッシュを生成しない）。
@@ -425,7 +447,7 @@ export async function buildBlockMeshData(
   _mcVersion: string,
 ): Promise<BlockMeshData | null> {
   // air は描画しない
-  if (AIR_BLOCKS.has(blockId)) return null
+  if (isAirBlockId(blockId)) return null
 
   const transparent = isTransparent(blockId)
 
@@ -501,4 +523,34 @@ export async function buildBlockMeshData(
     ),
     rotation: [THREE.MathUtils.degToRad(-rotX), THREE.MathUtils.degToRad(-rotY), 0],
   }
+}
+
+/**
+ * UI アイコン用に、ブロック ID に対応する item モデルを構築する。
+ * models/item/{block}.json を起点にするため、インベントリ表示と同じモデル定義を優先する。
+ */
+export async function buildItemMeshData(
+  blockId: string,
+  state: BlockState,
+  loader: IAssetLoader,
+  mcVersion: string,
+): Promise<BlockMeshData | null> {
+  if (isAirBlockId(blockId)) return null
+
+  const blockName = blockId.replace(/^minecraft:/, '')
+  const model = await fetchModelMerged(`minecraft:item/${blockName}`, loader)
+
+  const object = model.elements && model.elements.length > 0
+    ? await buildObjectFromElements(model.elements, model, loader, isTransparent(blockId))
+    : await buildFlatItemObject(model, loader)
+
+  if (object) {
+    return {
+      object,
+      rotation: [0, 0, 0],
+      iconView: model.elements && model.elements.length > 0 ? 'isometric' : 'front',
+    }
+  }
+
+  return buildBlockMeshData(blockId, state, loader, mcVersion)
 }

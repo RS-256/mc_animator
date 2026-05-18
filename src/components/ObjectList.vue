@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAppState } from '../composables/useAppState'
 import { useI18n } from '../i18n'
+import ObjectIcon from './ObjectIcon.vue'
 
 const { schema } = useAppState()
 const { t } = useI18n()
@@ -16,7 +17,7 @@ const { t } = useI18n()
         :key="obj.id"
         class="obj-item"
       >
-        <span class="obj-type" :class="obj.type">{{ obj.type === 'block' ? '⬛' : '📷' }}</span>
+        <ObjectIcon :object="obj" />
         <span class="obj-id">{{ obj.id }}</span>
         <span class="obj-kf">{{ obj.keyframes.length }} kf</span>
       </div>
@@ -57,11 +58,6 @@ const { t } = useI18n()
   border-radius: 4px;
   background: var(--bg-3);
   border: 1px solid var(--border);
-}
-
-.obj-type {
-  font-size: 0.75rem;
-  flex-shrink: 0;
 }
 
 .obj-id {
