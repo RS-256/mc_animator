@@ -1,4 +1,5 @@
 // MC Animator — JSON Schema Types
+import type { I18nParams, MessageKey } from '../i18n'
 
 export type TickMode = 'absolute' | 'relative'
 export const SUPPORTED_EASINGS = [
@@ -81,6 +82,8 @@ export type ValidationSeverity = 'error' | 'warning'
 
 export interface ValidationMessage {
   severity: ValidationSeverity
+  messageKey?: MessageKey
+  params?: I18nParams
   message: string
 }
 

@@ -4,8 +4,10 @@ import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
 import { useAppState } from '../composables/useAppState'
 import { SceneRenderer } from '../core/Renderer'
 import { resolveScene } from '../core/Interpolator'
+import { useI18n } from '../i18n'
 
 const { schema, currentTick, zipLoader } = useAppState()
+const { t } = useI18n()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const wrapperRef = ref<HTMLDivElement | null>(null)
@@ -140,7 +142,7 @@ onUnmounted(() => {
     <div v-if="!schema" class="preview-placeholder">
       <div class="placeholder-content">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg>
-        <p>JSON を読み込むとここにプレビューが表示されます</p>
+        <p>{{ t('preview.placeholder') }}</p>
       </div>
     </div>
   </div>

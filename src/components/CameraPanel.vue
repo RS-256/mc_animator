@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { useAppState } from '../composables/useAppState'
+import { useI18n } from '../i18n'
 
 const { cameraObjects, activeCameraId, setActiveCameraId } = useAppState()
+const { t } = useI18n()
 </script>
 
 <template>
   <aside class="panel">
-    <div class="panel__title">カメラ</div>
+    <div class="panel__title">{{ t('camera.title') }}</div>
 
     <div v-if="cameraObjects.length > 0" class="cam-list">
       <button
@@ -21,7 +23,7 @@ const { cameraObjects, activeCameraId, setActiveCameraId } = useAppState()
       </button>
     </div>
 
-    <div v-else class="empty-state">カメラが定義されていません</div>
+    <div v-else class="empty-state">{{ t('camera.empty') }}</div>
   </aside>
 </template>
 

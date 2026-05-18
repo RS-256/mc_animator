@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useAppState } from '../composables/useAppState'
 import { exportAnimation, type ExportFormat, type ExportMode } from '../core/Exporter'
 import { SceneRenderer } from '../core/Renderer'
+import { useI18n } from '../i18n'
 
 const {
   schema,
@@ -12,6 +13,7 @@ const {
   _isExporting: isExporting,
   _exportProgress: exportProgress,
 } = useAppState()
+const { t } = useI18n()
 
 const format = ref<ExportFormat>('png_zip')
 const exportMode = ref<ExportMode>('direct')
@@ -20,8 +22,8 @@ let cancelFlag = false
 
 const isVideoFormat = computed(() => format.value !== 'png_zip')
 const selectedModeLabel = computed(() => {
-  if (!isVideoFormat.value) return 'PNG ZIP'
-  return exportMode.value === 'direct' ? '直接動画' : 'ローカル変換'
+  if (!isVideoFormat.value) return t('export.mode.pngZip')
+  return exportMode.value === 'direct' ? t('export.mode.direct') : t('export.mode.local')
 })
 
 async function startExport(mode: ExportMode = exportMode.value) {
@@ -54,7 +56,7 @@ async function startExport(mode: ExportMode = exportMode.value) {
     })
   } catch (error) {
     console.error(error)
-    alert(error instanceof Error ? error.message : 'エクスポートに失敗しました。')
+    alert(error instanceof Error ? error.message : t('export.failed'))
   } finally {
     renderer.dispose()
     isExporting.value = false
@@ -84,10 +86,10 @@ const progressPct = () =>
 <template>
   <div class="export-panel">
     <div class="export-panel__left">
-      <label class="small-label">出力形式</label>
+      <label class="small-label">{{ t('export.format') }}</label>
       <select v-model="format" class="format-select" :disabled="isExporting">
-        <option value="png_zip">PNG シーケンス + ZIP</option>
-        <option value="mkv_ffv1">ロスレス MKV / FFV1</option>
+        <option value="png_zip">{{ t('export.format.pngZip') }}</option>
+        <option value="mkv_ffv1">{{ t('export.format.mkv') }}</option>
         <option value="mp4_h264">MP4 / H.264</option>
         <option value="mp4_h265">MP4 / H.265</option>
         <option value="mp4_av1">MP4 / AV1</option>
@@ -101,7 +103,7 @@ const progressPct = () =>
         :disabled="!schema || totalFrames > 4096"
         @click="startExport()"
       >
-        レンダリング開始
+        {{ t('export.renderStart') }}
       </button>
       <div v-else class="export-action">
         <button
@@ -109,13 +111,13 @@ const progressPct = () =>
           :disabled="!schema || totalFrames > 4096"
           @click="startExport()"
         >
-          レンダリング開始
+          {{ t('export.renderStart') }}
           <span class="mode-label">{{ selectedModeLabel }}</span>
         </button>
         <button
           class="btn btn--primary export-action__arrow"
           :disabled="!schema || totalFrames > 4096"
-          title="出力方法"
+          :title="t('export.outputMethod')"
           @click="toggleExportMenu"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -126,14 +128,14 @@ const progressPct = () =>
             :class="{ 'export-menu__item--active': exportMode === 'direct' }"
             @click="setExportMode('direct')"
           >
-            動画として直接ダウンロード
+            {{ t('export.downloadVideo') }}
           </button>
           <button
             class="export-menu__item"
             :class="{ 'export-menu__item--active': exportMode === 'local_package' }"
             @click="setExportMode('local_package')"
           >
-            PNG連番 + ffmpegスクリプト
+            {{ t('export.localPackage') }}
           </button>
         </div>
       </div>
@@ -144,9 +146,9 @@ const progressPct = () =>
         <div class="progress-bar__fill" :style="{ width: progressPct() + '%' }" />
       </div>
       <span class="progress-label">
-        {{ exportProgress.current }} / {{ exportProgress.total }} フレーム ({{ progressPct() }}%)
+        {{ exportProgress.current }} / {{ exportProgress.total }} {{ t('export.frames') }} ({{ progressPct() }}%)
       </span>
-      <button class="btn btn--ghost" @click="cancelExport">キャンセル</button>
+      <button class="btn btn--ghost" @click="cancelExport">{{ t('export.cancel') }}</button>
     </div>
   </div>
 </template>

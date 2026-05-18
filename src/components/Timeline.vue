@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useAppState } from '../composables/useAppState'
+import { useI18n } from '../i18n'
 
 const { currentTick, totalTicks, totalFrames, ticksPerFrame, isPlaying, setTick, togglePlay, stopPlay } = useAppState()
+const { t } = useI18n()
 
 const currentFrame = computed(() => Math.min(totalFrames.value, Math.round(currentTick.value / ticksPerFrame.value)))
 const currentTickLabel = computed(() => Number.isInteger(currentTick.value)
@@ -24,7 +26,7 @@ function stepFwd()  { stopPlay(); setTick(currentTick.value + ticksPerFrame.valu
 <template>
   <div class="timeline">
     <div class="timeline__controls">
-      <button class="ctrl-btn" title="先頭" @click="goStart">⏮</button>
+      <button class="ctrl-btn" :title="t('timeline.start')" @click="goStart">⏮</button>
       <button class="ctrl-btn" title="-1 frame" @click="stepBack">
         <span class="step-icon step-icon--back" aria-hidden="true">
           <span class="step-icon__triangle"></span>
@@ -40,7 +42,7 @@ function stepFwd()  { stopPlay(); setTick(currentTick.value + ticksPerFrame.valu
           <span class="step-icon__triangle"></span>
         </span>
       </button>
-      <button class="ctrl-btn" title="末尾" @click="goEnd">⏭</button>
+      <button class="ctrl-btn" :title="t('timeline.end')" @click="goEnd">⏭</button>
     </div>
 
     <input

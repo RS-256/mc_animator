@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { useAppState } from '../composables/useAppState'
+import { useI18n } from '../i18n'
 
 const { schema } = useAppState()
+const { t } = useI18n()
 </script>
 
 <template>
   <aside class="panel">
-    <div class="panel__title">オブジェクト</div>
+    <div class="panel__title">{{ t('objects.title') }}</div>
 
     <div v-if="schema && schema.objects.length > 0" class="obj-list">
       <div
@@ -20,7 +22,7 @@ const { schema } = useAppState()
       </div>
     </div>
 
-    <div v-else class="empty-state">オブジェクトがありません</div>
+    <div v-else class="empty-state">{{ t('objects.empty') }}</div>
   </aside>
 </template>
 

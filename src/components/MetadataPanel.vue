@@ -2,8 +2,10 @@
 import { computed } from 'vue'
 import { useAppState } from '../composables/useAppState'
 import type { GizmoSettings } from '../types/schema'
+import { useI18n } from '../i18n'
 
 const { schema, totalFrames, updateMetadata } = useAppState()
+const { t } = useI18n()
 
 const meta = computed(() => schema.value?.metadata)
 
@@ -59,23 +61,23 @@ function onGizmoOriginChange(index: 0 | 1, e: Event) {
 
 <template>
   <aside class="panel">
-    <div class="panel__title">メタデータ</div>
+    <div class="panel__title">{{ t('metadata.title') }}</div>
 
     <template v-if="meta">
       <div class="field-group">
         <div class="field">
-          <label>MC バージョン</label>
+          <label>{{ t('metadata.mcVersion') }}</label>
           <input type="text" :value="meta.mc_version"
             @change="updateMetadata('mc_version', ($event.target as HTMLInputElement).value)" />
         </div>
         <div class="field row">
           <div>
-            <label>解像度 W</label>
+            <label>{{ t('metadata.resolutionW') }}</label>
             <input type="number" :value="meta.resolution[0]" min="1"
               @change="updateMetadata('resolution', [+($event.target as HTMLInputElement).value, meta!.resolution[1]])" />
           </div>
           <div>
-            <label>解像度 H</label>
+            <label>{{ t('metadata.resolutionH') }}</label>
             <input type="number" :value="meta.resolution[1]" min="1"
               @change="updateMetadata('resolution', [meta!.resolution[0], +($event.target as HTMLInputElement).value])" />
           </div>
@@ -93,18 +95,18 @@ function onGizmoOriginChange(index: 0 | 1, e: Event) {
           </div>
         </div>
         <div class="field">
-          <label>総 tick 数</label>
+          <label>{{ t('metadata.totalTicks') }}</label>
           <input type="number" :value="meta.duration_ticks" min="1"
             @change="updateMetadata('duration_ticks', +($event.target as HTMLInputElement).value)" />
         </div>
         <div class="field frames-info">
-          総フレーム数: <strong>{{ totalFrames }}</strong> / 4096
-          <span v-if="totalFrames > 4096" class="error-tag">上限超過</span>
+          {{ t('metadata.totalFrames') }}: <strong>{{ totalFrames }}</strong> / 4096
+          <span v-if="totalFrames > 4096" class="error-tag">{{ t('metadata.frameLimitExceeded') }}</span>
         </div>
 
         <!-- 背景色 -->
         <div class="field">
-          <label>背景色 (ARGB)</label>
+          <label>{{ t('metadata.backgroundColor') }}</label>
           <div class="color-row">
             <input type="color" :value="bgHex" @input="onColorChange" class="color-picker" />
             <div class="alpha-col">
@@ -122,11 +124,11 @@ function onGizmoOriginChange(index: 0 | 1, e: Event) {
               :checked="meta.gizmo?.visible ?? false"
               @change="onGizmoVisibleChange"
             />
-            Gizmo を表示
+            {{ t('metadata.showGizmo') }}
           </label>
           <div class="field row">
             <div>
-              <label>起点 X</label>
+              <label>{{ t('metadata.originX') }}</label>
               <input
                 type="number"
                 :value="meta.gizmo?.origin[0] ?? 64"
@@ -135,7 +137,7 @@ function onGizmoOriginChange(index: 0 | 1, e: Event) {
               />
             </div>
             <div>
-              <label>起点 Y</label>
+              <label>{{ t('metadata.originY') }}</label>
               <input
                 type="number"
                 :value="meta.gizmo?.origin[1] ?? 64"
@@ -148,7 +150,7 @@ function onGizmoOriginChange(index: 0 | 1, e: Event) {
       </div>
     </template>
 
-    <div v-else class="empty-state">JSON を読み込んでください</div>
+    <div v-else class="empty-state">{{ t('metadata.loadJsonPrompt') }}</div>
   </aside>
 </template>
 

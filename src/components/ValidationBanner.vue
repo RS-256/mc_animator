@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { useAppState } from '../composables/useAppState'
+import { useI18n } from '../i18n'
 
 const { validation } = useAppState()
+const { t } = useI18n()
 </script>
 
 <template>
@@ -13,7 +15,7 @@ const { validation } = useAppState()
       :class="msg.severity"
     >
       <span class="val-icon">{{ msg.severity === 'error' ? '✖' : '⚠' }}</span>
-      {{ msg.message }}
+      {{ msg.messageKey ? t(msg.messageKey, msg.params) : msg.message }}
     </div>
   </div>
 </template>
