@@ -15,13 +15,21 @@ export interface BlockState {
   [key: string]: string
 }
 
+export type Vec3 = [number, number, number]
+export type CameraPositionComponent = number | string
+export type CameraPosition = [
+  CameraPositionComponent,
+  CameraPositionComponent,
+  CameraPositionComponent,
+]
+
 // ブロックキーフレーム
 export interface BlockKeyframe {
   tick: number
   tick_mode?: TickMode          // デフォルト: 'absolute'
   block?: string | null         // null で削除
   state?: BlockState
-  pos?: [number, number, number]
+  pos?: Vec3
   multiplier?: number           // ブロック一辺の倍率。デフォルト: 1
   easing?: EasingType
 }
@@ -30,8 +38,8 @@ export interface BlockKeyframe {
 export interface CameraKeyframe {
   tick: number
   tick_mode?: TickMode
-  pos?: [number, number, number]
-  look_at?: [number, number, number]
+  pos?: CameraPosition
+  look_at?: Vec3
   fov?: number
   easing?: EasingType
 }
@@ -98,13 +106,13 @@ export interface ResolvedBlockState {
   visible: boolean
   block: string
   state: BlockState
-  pos: [number, number, number]
+  pos: Vec3
   multiplier: number
 }
 
 export interface ResolvedCameraState {
-  pos: [number, number, number]
-  look_at: [number, number, number]
+  pos: Vec3
+  look_at: Vec3
   fov: number
 }
 

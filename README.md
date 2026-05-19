@@ -51,6 +51,22 @@ Supported easing values:
 
 Easing is applied to block `pos` interpolation and camera `pos`, `look_at`, and `fov` interpolation. Keyframes without `easing` use `linear`.
 
+## Camera relative position
+
+Camera `pos` values can use Minecraft-style tilde offsets from the previous resolved camera position. Because this is JSON, tilde values must be strings:
+
+```json
+{
+  "type": "camera",
+  "keyframes": [
+    { "tick": 0, "pos": [7, 68, 7], "look_at": [0, 65, 0], "fov": 70 },
+    { "tick": 20, "pos": ["~1", "~0", "~-2"] }
+  ]
+}
+```
+
+The second keyframe above resolves to `[8, 68, 5]`.
+
 ## Preview gizmo
 
 The preview can show a UI-only Minecraft axis gizmo. It is drawn over the browser preview and is not included in PNG or video exports.

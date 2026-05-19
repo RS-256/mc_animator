@@ -8,6 +8,7 @@ import type {
   ResolvedCameraState,
   BlockState,
   EasingType,
+  Vec3,
 } from '../types/schema'
 import { DEFAULT_CAMERA_ID } from '../types/schema'
 
@@ -37,10 +38,10 @@ function lerpNumber(a: number, b: number, t: number): number {
 }
 
 function lerpVec3(
-  a: [number, number, number],
-  b: [number, number, number],
+  a: Vec3,
+  b: Vec3,
   t: number,
-): [number, number, number] {
+): Vec3 {
   return [lerpNumber(a[0], b[0], t), lerpNumber(a[1], b[1], t), lerpNumber(a[2], b[2], t)]
 }
 
@@ -79,7 +80,7 @@ export function resolveBlock(
   // 状態を先頭から prevIdx まで積み上げて解決
   let block: string | null = null
   let state: BlockState = {}
-  let pos: [number, number, number] = [0, 0, 0]
+  let pos: Vec3 = [0, 0, 0]
   let multiplier = 1
 
   for (let i = 0; i <= prevIdx; i++) {
@@ -97,8 +98,8 @@ export function resolveBlock(
   if (nextIdx < kfs.length) {
     const prev = kfs[prevIdx]
     const next = kfs[nextIdx]
-    const prevPos = resolveFieldAt<[number, number, number]>(kfs, prevIdx, 'pos', [0, 0, 0])
-    const nextPos = resolveFieldAt<[number, number, number]>(kfs, nextIdx, 'pos', prevPos)
+    const prevPos = resolveFieldAt<Vec3>(kfs, prevIdx, 'pos', [0, 0, 0])
+    const nextPos = resolveFieldAt<Vec3>(kfs, nextIdx, 'pos', prevPos)
     const prevMultiplier = resolveFieldAt<number>(kfs, prevIdx, 'multiplier', 1)
     const nextMultiplier = resolveFieldAt<number>(kfs, nextIdx, 'multiplier', prevMultiplier)
 
@@ -137,12 +138,67 @@ const DEFAULT_CAM: ResolvedCameraState = {
   fov: 70,
 }
 
+type AbsoluteCameraKeyframe = Omit<CameraKeyframe, 'pos'> & {
+  _absoluteTick: number
+  pos?: Vec3
+}
+
+function isRelativeCameraPosComponent(value: unknown): value is string {
+  return typeof value === 'string' && value.startsWith('~')
+}
+
+function parseRelativeCameraPosComponent(value: string): number | null {
+  const rawOffset = value.slice(1).trim()
+  if (rawOffset === '') return 0
+
+  const offset = Number(rawOffset)
+  return Number.isFinite(offset) ? offset : null
+}
+
+function resolveCameraPos(pos: CameraKeyframe['pos'], previousPos?: Vec3): Vec3 | undefined {
+  if (pos === undefined) return undefined
+
+  const hasRelativeComponent = pos.some(isRelativeCameraPosComponent)
+  if (!hasRelativeComponent) {
+    return pos.every(value => typeof value === 'number' && Number.isFinite(value))
+      ? pos as Vec3
+      : undefined
+  }
+
+  if (!previousPos) return undefined
+
+  const resolved = pos.map((value, index) => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (!isRelativeCameraPosComponent(value)) return undefined
+
+    const offset = parseRelativeCameraPosComponent(value)
+    return offset === null ? undefined : previousPos[index] + offset
+  })
+
+  return resolved.every(value => typeof value === 'number')
+    ? resolved as Vec3
+    : undefined
+}
+
+function resolveRelativeCameraPositions(
+  keyframes: (CameraKeyframe & { _absoluteTick: number })[],
+): AbsoluteCameraKeyframe[] {
+  let previousPos: Vec3 | undefined
+
+  return keyframes.map(kf => {
+    const resolvedPos = resolveCameraPos(kf.pos, previousPos)
+    if (resolvedPos) previousPos = resolvedPos
+    return { ...kf, pos: resolvedPos }
+  })
+}
+
 export function resolveCamera(
   obj: CameraObject,
   tick: number,
 ): ResolvedCameraState {
-  const kfs = resolveAbsoluteTicks(obj.keyframes as CameraKeyframe[])
+  const kfs = resolveRelativeCameraPositions(resolveAbsoluteTicks(obj.keyframes as CameraKeyframe[])
     .sort((a, b) => a._absoluteTick - b._absoluteTick)
+  )
 
   if (kfs.length === 0) return DEFAULT_CAM
 
@@ -158,8 +214,8 @@ export function resolveCamera(
   // 最後のキーフレームより後は最後の値を使う
   const last = kfs[kfs.length - 1]
   if (tick >= last._absoluteTick) {
-    const pos = resolveCamField<[number, number, number]>(kfs, kfs.length - 1, 'pos', DEFAULT_CAM.pos)
-    const look_at = resolveCamField<[number, number, number]>(kfs, kfs.length - 1, 'look_at', DEFAULT_CAM.look_at)
+    const pos = resolveCamField<Vec3>(kfs, kfs.length - 1, 'pos', DEFAULT_CAM.pos)
+    const look_at = resolveCamField<Vec3>(kfs, kfs.length - 1, 'look_at', DEFAULT_CAM.look_at)
     const fov = resolveCamField<number>(kfs, kfs.length - 1, 'fov', DEFAULT_CAM.fov)
     return { pos, look_at, fov }
   }
@@ -177,10 +233,10 @@ export function resolveCamera(
   const rawT = duration > 0 ? (tick - prev._absoluteTick) / duration : 1
   const t = applyEasing(rawT, easing)
 
-  const prevPos = resolveCamField<[number, number, number]>(kfs, prevIdx, 'pos', DEFAULT_CAM.pos)
-  const nextPos = resolveCamField<[number, number, number]>(kfs, nextIdx, 'pos', prevPos)
-  const prevLookAt = resolveCamField<[number, number, number]>(kfs, prevIdx, 'look_at', DEFAULT_CAM.look_at)
-  const nextLookAt = resolveCamField<[number, number, number]>(kfs, nextIdx, 'look_at', prevLookAt)
+  const prevPos = resolveCamField<Vec3>(kfs, prevIdx, 'pos', DEFAULT_CAM.pos)
+  const nextPos = resolveCamField<Vec3>(kfs, nextIdx, 'pos', prevPos)
+  const prevLookAt = resolveCamField<Vec3>(kfs, prevIdx, 'look_at', DEFAULT_CAM.look_at)
+  const nextLookAt = resolveCamField<Vec3>(kfs, nextIdx, 'look_at', prevLookAt)
   const prevFov = resolveCamField<number>(kfs, prevIdx, 'fov', DEFAULT_CAM.fov)
   const nextFov = resolveCamField<number>(kfs, nextIdx, 'fov', prevFov)
 
@@ -192,7 +248,7 @@ export function resolveCamera(
 }
 
 function resolveCamField<T>(
-  kfs: (CameraKeyframe & { _absoluteTick: number })[],
+  kfs: AbsoluteCameraKeyframe[],
   upToIdx: number,
   field: keyof CameraKeyframe,
   defaultVal: T,
