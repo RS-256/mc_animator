@@ -2,6 +2,7 @@ import { ref, computed, readonly } from 'vue'
 import type { AnimationSchema, ValidationResult } from '../types/schema'
 import { validate, parseSchema } from '../core/Validator'
 import { CdnTextureLoader, ZipTextureLoader } from '../texture/TextureLoader'
+import { translate } from '../i18n'
 
 // ── シングルトンの状態 ─────────────────────────────────────────────
 
@@ -42,7 +43,24 @@ const blockObjects = computed(() =>
 
 async function loadJson(file: File) {
   const text = await file.text()
-  const data = JSON.parse(text)
+  let data: unknown
+
+  try {
+    data = JSON.parse(text)
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error)
+    validation.value = {
+      valid: false,
+      messages: [{
+        severity: 'error',
+        messageKey: 'validation.parseError',
+        params: { detail },
+        message: translate('validation.parseError', { detail }),
+      }],
+    }
+    return
+  }
+
   const result = validate(data)
   validation.value = result
 
@@ -54,6 +72,10 @@ async function loadJson(file: File) {
     activeCameraId.value = parsed.metadata.active_camera ?? '__camera__'
     cdnLoader.setVersion(parsed.metadata.mc_version)
   }
+}
+
+function dismissValidation() {
+  validation.value = null
 }
 
 async function loadResourcePack(file: File) {
@@ -135,6 +157,7 @@ export function useAppState() {
     // actions
     loadJson,
     loadResourcePack,
+    dismissValidation,
     setTick,
     setActiveCameraId,
     updateMetadata,

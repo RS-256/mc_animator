@@ -7,6 +7,7 @@ import { MAX_FRAMES, DEFAULT_CAMERA_ID, SUPPORTED_EASINGS } from '../types/schem
 import { translate, type I18nParams, type MessageKey } from '../i18n'
 
 const ARGB_RE = /^#[0-9A-Fa-f]{8}$/
+const RELATIVE_POS_RE = /^~(?:[+-]?(?:\d+\.?\d*|\.\d+))?$/
 
 function validationMessage(
   severity: ValidationMessage['severity'],
@@ -42,6 +43,16 @@ export function validate(data: unknown): ValidationResult {
     if (meta[key] === undefined) {
       msgs.push(validationMessage('error', 'validation.metadataKeyMissing', { key }))
     }
+  }
+
+  for (const key of ['format_version', 'fps', 'ticks_per_second', 'duration_ticks']) {
+    if (meta[key] !== undefined && !isFiniteNumber(meta[key])) {
+      msgs.push(validationMessage('error', 'validation.metadataNumberInvalid', { key }))
+    }
+  }
+
+  if (meta.mc_version !== undefined && typeof meta.mc_version !== 'string') {
+    msgs.push(validationMessage('error', 'validation.mcVersionInvalid'))
   }
 
   if (
@@ -100,13 +111,20 @@ export function validate(data: unknown): ValidationResult {
     return { valid: false, messages: msgs }
   }
 
-  const objects = root.objects as Record<string, unknown>[]
+  const objects = root.objects as unknown[]
   const ids = new Set<string>()
   const cameraIds: string[] = []
 
   for (let i = 0; i < objects.length; i++) {
-    const obj = objects[i]
     const prefix = `objects[${i}]`
+    const rawObj = objects[i]
+
+    if (typeof rawObj !== 'object' || rawObj === null || Array.isArray(rawObj)) {
+      msgs.push(validationMessage('error', 'validation.objectInvalid', { index: i }))
+      continue
+    }
+
+    const obj = rawObj as Record<string, unknown>
 
     if (typeof obj.id !== 'string' || obj.id.trim() === '') {
       msgs.push(validationMessage('error', 'validation.objectIdMissing', { prefix }))
@@ -130,8 +148,24 @@ export function validate(data: unknown): ValidationResult {
     } else {
       for (let k = 0; k < obj.keyframes.length; k++) {
         const kf = obj.keyframes[k]
-        if (typeof kf !== 'object' || kf === null || Array.isArray(kf)) continue
+        if (typeof kf !== 'object' || kf === null || Array.isArray(kf)) {
+          msgs.push(validationMessage('error', 'validation.keyframeInvalid', { id, index: k }))
+          continue
+        }
         const keyframe = kf as Record<string, unknown>
+
+        if (!isFiniteNumber(keyframe.tick)) {
+          msgs.push(validationMessage('error', 'validation.tickInvalid', { id, index: k }))
+        }
+
+        if (
+          keyframe.tick_mode !== undefined &&
+          keyframe.tick_mode !== 'absolute' &&
+          keyframe.tick_mode !== 'relative'
+        ) {
+          msgs.push(validationMessage('error', 'validation.tickModeInvalid', { id, index: k }))
+        }
+
         const easing = keyframe.easing
         if (
           easing !== undefined &&
@@ -152,6 +186,26 @@ export function validate(data: unknown): ValidationResult {
             }))
           }
         }
+
+        if (obj.type === 'block' && keyframe.pos !== undefined && !isNumberVec3(keyframe.pos)) {
+          msgs.push(validationMessage('error', 'validation.blockPosInvalid', { id, index: k }))
+        }
+
+        if (obj.type === 'camera') {
+          if (keyframe.pos !== undefined && !isCameraPos(keyframe.pos)) {
+            msgs.push(validationMessage('error', 'validation.cameraPosInvalid', { id, index: k }))
+          }
+          if (keyframe.look_at !== undefined && !isNumberVec3(keyframe.look_at)) {
+            msgs.push(validationMessage('error', 'validation.cameraLookAtInvalid', { id, index: k }))
+          }
+          if (keyframe.fov !== undefined && (!isFiniteNumber(keyframe.fov) || keyframe.fov <= 0)) {
+            msgs.push(validationMessage('error', 'validation.cameraFovInvalid', { id, index: k }))
+          }
+        }
+      }
+
+      if (obj.type === 'camera') {
+        validateCameraRelativePositions(id, obj.keyframes, msgs)
       }
     }
   }
@@ -175,6 +229,67 @@ export function validate(data: unknown): ValidationResult {
 
   const hasErrors = msgs.some(m => m.severity === 'error')
   return { valid: !hasErrors, messages: msgs }
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function isNumberVec3(value: unknown): value is [number, number, number] {
+  return Array.isArray(value) &&
+    value.length === 3 &&
+    value.every(isFiniteNumber)
+}
+
+function isRelativePosComponent(value: unknown): value is string {
+  return typeof value === 'string' && RELATIVE_POS_RE.test(value)
+}
+
+function isCameraPos(value: unknown): value is [number | string, number | string, number | string] {
+  return Array.isArray(value) &&
+    value.length === 3 &&
+    value.every(component => isFiniteNumber(component) || isRelativePosComponent(component))
+}
+
+function hasRelativeComponent(value: unknown): boolean {
+  return Array.isArray(value) && value.some(component => typeof component === 'string' && component.startsWith('~'))
+}
+
+function validateCameraRelativePositions(
+  id: string,
+  rawKeyframes: unknown,
+  msgs: ValidationMessage[],
+) {
+  if (!Array.isArray(rawKeyframes)) return
+
+  let lastAbsoluteTick = 0
+  let hasPreviousPos = false
+
+  const keyframes = rawKeyframes
+    .map((kf, index) => {
+      if (typeof kf !== 'object' || kf === null || Array.isArray(kf)) return null
+      const keyframe = kf as Record<string, unknown>
+      if (!isFiniteNumber(keyframe.tick)) return null
+      const absoluteTick = keyframe.tick_mode === 'relative'
+        ? lastAbsoluteTick + keyframe.tick
+        : keyframe.tick
+      lastAbsoluteTick = absoluteTick
+      return { index, absoluteTick, keyframe }
+    })
+    .filter((kf): kf is NonNullable<typeof kf> => kf !== null)
+    .sort((a, b) => a.absoluteTick - b.absoluteTick)
+
+  for (const { index, keyframe } of keyframes) {
+    if (keyframe.pos === undefined) continue
+    if (!isCameraPos(keyframe.pos)) continue
+
+    if (hasRelativeComponent(keyframe.pos) && !hasPreviousPos) {
+      msgs.push(validationMessage('error', 'validation.cameraRelativePosWithoutPrevious', { id, index }))
+      continue
+    }
+
+    hasPreviousPos = true
+  }
 }
 
 export function parseSchema(data: unknown): AnimationSchema {

@@ -6,8 +6,10 @@ const { loadJson, loadResourcePack } = useAppState()
 const { language, languageOptions, t } = useI18n()
 
 function onJsonInput(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
   if (file) loadJson(file)
+  input.value = ''
 }
 
 function onZipInput(e: Event) {
