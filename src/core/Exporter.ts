@@ -497,10 +497,14 @@ async function exportMp4WithWebCodecs(params: WebCodecsMp4ExportOptions): Promis
     fastStart: 'in-memory',
   })
 
+  let rejectEncoderError: (error: Error) => void = () => {}
+  const encoderError = new Promise<never>((_, reject) => {
+    rejectEncoderError = reject
+  })
   const encoder = new VideoEncoder({
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
     error: error => {
-      throw error
+      rejectEncoderError(error instanceof Error ? error : new Error(String(error)))
     },
   })
 
@@ -527,7 +531,7 @@ async function exportMp4WithWebCodecs(params: WebCodecsMp4ExportOptions): Promis
       params.options.onProgress?.(frame + 1, params.totalFrames)
     }
 
-    await encoder.flush()
+    await Promise.race([encoder.flush(), encoderError])
     muxer.finalize()
 
     downloadBlob(new Blob([target.buffer], { type: params.mimeType }), params.downloadName)

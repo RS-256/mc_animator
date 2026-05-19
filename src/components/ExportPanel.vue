@@ -18,6 +18,7 @@ const { t } = useI18n()
 const format = ref<ExportFormat>('png_zip')
 const exportMode = ref<ExportMode>('direct')
 const isExportMenuOpen = ref(false)
+const exportError = ref<string | null>(null)
 let cancelFlag = false
 
 const isVideoFormat = computed(() => format.value !== 'png_zip')
@@ -29,6 +30,7 @@ const selectedModeLabel = computed(() => {
 async function startExport(mode: ExportMode = exportMode.value) {
   if (!schema.value) return
   isExportMenuOpen.value = false
+  exportError.value = null
 
   // オフスクリーン用レンダラーを別途生成
   const offscreen = document.createElement('canvas')
@@ -36,15 +38,17 @@ async function startExport(mode: ExportMode = exportMode.value) {
   offscreen.width = w
   offscreen.height = h
 
-  const renderer = new SceneRenderer(offscreen, { pixelRatio: 1 })
-  renderer.setSize(w, h)
-  await renderer.loadSchema(schema.value, zipLoader)
-
-  isExporting.value = true
-  cancelFlag = false
-  exportProgress.value = { current: 0, total: totalFrames.value }
+  let renderer: SceneRenderer | null = null
 
   try {
+    renderer = new SceneRenderer(offscreen, { pixelRatio: 1 })
+    renderer.setSize(w, h)
+    await renderer.loadSchema(schema.value, zipLoader)
+
+    isExporting.value = true
+    cancelFlag = false
+    exportProgress.value = { current: 0, total: totalFrames.value }
+
     await exportAnimation(schema.value, renderer, {
       format: format.value,
       mode: isVideoFormat.value ? mode : 'direct',
@@ -56,9 +60,9 @@ async function startExport(mode: ExportMode = exportMode.value) {
     })
   } catch (error) {
     console.error(error)
-    alert(error instanceof Error ? error.message : t('export.failed'))
+    exportError.value = error instanceof Error ? error.message : t('export.failed')
   } finally {
-    renderer.dispose()
+    renderer?.dispose()
     isExporting.value = false
   }
 }
@@ -77,6 +81,10 @@ function toggleExportMenu() {
   isExportMenuOpen.value = !isExportMenuOpen.value
 }
 
+function closeExportError() {
+  exportError.value = null
+}
+
 const progressPct = () =>
   exportProgress.value.total > 0
     ? Math.round((exportProgress.value.current / exportProgress.value.total) * 100)
@@ -84,6 +92,28 @@ const progressPct = () =>
 </script>
 
 <template>
+  <div
+    v-if="exportError"
+    class="export-error-modal"
+    role="alertdialog"
+    aria-modal="true"
+  >
+    <div class="export-error-modal__panel">
+      <div class="export-error-modal__header">
+        <div class="export-error-modal__title">{{ t('export.errorTitle') }}</div>
+        <button class="export-error-modal__close" type="button" @click="closeExportError">
+          {{ t('export.errorClose') }}
+        </button>
+      </div>
+      <div class="export-error-modal__body">
+        <div class="export-error-msg">
+          <span class="export-error-msg__icon">✖</span>
+          <pre>{{ exportError }}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="export-panel">
     <div class="export-panel__left">
       <label class="small-label">{{ t('export.format') }}</label>
@@ -291,5 +321,81 @@ const progressPct = () =>
   font-size: 0.72rem;
   color: var(--text-muted);
   white-space: nowrap;
+}
+
+.export-error-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(15 17 23 / 0.72);
+}
+
+.export-error-modal__panel {
+  width: min(620px, 100%);
+  max-height: min(70vh, 560px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-2);
+  border: 1px solid color-mix(in srgb, var(--error) 42%, var(--border));
+  border-radius: 8px;
+  box-shadow: 0 18px 60px rgb(0 0 0 / 0.45);
+}
+
+.export-error-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.export-error-modal__title {
+  color: var(--error);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.export-error-modal__close {
+  flex-shrink: 0;
+  padding: 0.3rem 0.65rem;
+  color: var(--text);
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 0.78rem;
+}
+
+.export-error-modal__close:hover {
+  border-color: var(--text-muted);
+}
+
+.export-error-modal__body {
+  padding: 0.85rem 1rem 1rem;
+  overflow-y: auto;
+}
+
+.export-error-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  color: var(--error);
+  font-size: 0.75rem;
+}
+
+.export-error-msg__icon {
+  flex-shrink: 0;
+}
+
+.export-error-msg pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-family: inherit;
 }
 </style>
