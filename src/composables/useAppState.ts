@@ -13,6 +13,7 @@ const isPlaying = ref(false)
 const activeCameraId = ref<string>('__camera__')
 const sourceJsonFileName = ref<string | null>(null)
 const selectedObjectIds = ref<string[]>([])
+const savedSchemaText = ref<string | null>(null)
 
 const cdnLoader = new CdnTextureLoader('1.21.4')
 const zipLoader = new ZipTextureLoader(cdnLoader)
@@ -46,7 +47,15 @@ const selectedObjects = computed(() => {
   return schema.value.objects.filter(object => selectedIds.has(object.id))
 })
 
+const isSchemaDirty = computed(() =>
+  Boolean(schema.value && savedSchemaText.value !== serializeSchema(schema.value)),
+)
+
 // ── アクション ────────────────────────────────────────────────────
+
+function serializeSchema(value: AnimationSchema) {
+  return JSON.stringify(value)
+}
 
 async function loadJson(file: File) {
   const text = await file.text()
@@ -78,6 +87,7 @@ async function loadJson(file: File) {
     currentTick.value = 0
     activeCameraId.value = parsed.metadata.active_camera ?? '__camera__'
     selectedObjectIds.value = []
+    savedSchemaText.value = serializeSchema(parsed)
     cdnLoader.setVersion(parsed.metadata.mc_version)
   }
 }
@@ -106,7 +116,12 @@ function createNewJson() {
   activeCameraId.value = '__camera__'
   selectedObjectIds.value = []
   sourceJsonFileName.value = 'animation.json'
+  savedSchemaText.value = serializeSchema(nextSchema)
   cdnLoader.setVersion(nextSchema.metadata.mc_version)
+}
+
+function markSchemaSaved() {
+  savedSchemaText.value = schema.value ? serializeSchema(schema.value) : null
 }
 
 function dismissValidation() {
@@ -360,6 +375,7 @@ export function useAppState() {
     cameraObjects,
     blockObjects,
     selectedObjects,
+    isSchemaDirty,
     fps,
     tps,
 
@@ -374,6 +390,7 @@ export function useAppState() {
     // actions
     loadJson,
     createNewJson,
+    markSchemaSaved,
     loadResourcePack,
     dismissValidation,
     setTick,

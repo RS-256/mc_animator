@@ -3,9 +3,18 @@ import { ref } from 'vue'
 import { useAppState } from '../composables/useAppState'
 import { useI18n, type LanguageKey } from '../i18n'
 
-const { schema, sourceJsonFileName, loadJson, createNewJson, loadResourcePack } = useAppState()
+const {
+  schema,
+  sourceJsonFileName,
+  isSchemaDirty,
+  loadJson,
+  createNewJson,
+  markSchemaSaved,
+  loadResourcePack,
+} = useAppState()
 const { language, languageOptions, t } = useI18n()
 const isFileMenuOpen = ref(false)
+const isNewConfirmOpen = ref(false)
 
 function onJsonInput(e: Event) {
   const input = e.target as HTMLInputElement
@@ -31,7 +40,23 @@ function onLanguageChange(e: Event) {
 }
 
 function handleCreateNewJson() {
+  if (isSchemaDirty.value) {
+    isFileMenuOpen.value = false
+    isNewConfirmOpen.value = true
+    return
+  }
+
   createNewJson()
+  isFileMenuOpen.value = false
+}
+
+function confirmCreateNewJson() {
+  createNewJson()
+  isNewConfirmOpen.value = false
+}
+
+function cancelCreateNewJson() {
+  isNewConfirmOpen.value = false
   isFileMenuOpen.value = false
 }
 
@@ -46,6 +71,7 @@ function downloadJson() {
   link.download = sourceJsonFileName.value ?? 'animation.json'
   link.click()
   URL.revokeObjectURL(url)
+  markSchemaSaved()
   isFileMenuOpen.value = false
 }
 </script>
@@ -110,6 +136,35 @@ function downloadJson() {
         {{ t('toolbar.resourcePack') }}
         <input type="file" accept=".zip" style="display:none" @change="onZipInput" />
       </label>
+    </div>
+
+    <div
+      v-if="isNewConfirmOpen"
+      class="confirm-modal"
+      role="alertdialog"
+      aria-modal="true"
+      :aria-label="t('toolbar.newJsonConfirmTitle')"
+      @click.self="cancelCreateNewJson"
+    >
+      <div class="confirm-modal__panel">
+        <div class="confirm-modal__header">
+          <div class="confirm-modal__title">{{ t('toolbar.newJsonConfirmTitle') }}</div>
+        </div>
+        <div class="confirm-modal__body">
+          <div class="confirm-msg warning">
+            <span class="confirm-icon">⚠</span>
+            <span>{{ t('toolbar.newJsonConfirmMessage') }}</span>
+          </div>
+        </div>
+        <div class="confirm-modal__footer">
+          <button class="confirm-button confirm-button--secondary" type="button" @click="cancelCreateNewJson">
+            {{ t('toolbar.newJsonCancel') }}
+          </button>
+          <button class="confirm-button confirm-button--danger" type="button" @click="confirmCreateNewJson">
+            {{ t('toolbar.newJsonDiscard') }}
+          </button>
+        </div>
+      </div>
     </div>
   </header>
 </template>
@@ -202,5 +257,88 @@ function downloadJson() {
 .language-select select:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.confirm-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgb(15 17 23 / 0.72);
+}
+
+.confirm-modal__panel {
+  width: min(520px, 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-2);
+  border: 1px solid color-mix(in srgb, var(--warning) 42%, var(--border));
+  border-radius: 8px;
+  box-shadow: 0 18px 60px rgb(0 0 0 / 0.45);
+}
+
+.confirm-modal__header {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.confirm-modal__title {
+  color: var(--warning);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.confirm-modal__body {
+  padding: 0.85rem 1rem 1rem;
+}
+
+.confirm-msg {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  padding: 0.15rem 0;
+}
+
+.confirm-msg.warning {
+  color: var(--warning);
+}
+
+.confirm-icon {
+  flex-shrink: 0;
+}
+
+.confirm-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0 1rem 1rem;
+}
+
+.confirm-button {
+  flex-shrink: 0;
+  padding: 0.3rem 0.65rem;
+  color: var(--text);
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 0.78rem;
+}
+
+.confirm-button--secondary:hover {
+  border-color: var(--text-muted);
+}
+
+.confirm-button--danger {
+  border-color: color-mix(in srgb, var(--error) 55%, var(--border));
+  color: var(--error);
+}
+
+.confirm-button--danger:hover {
+  background: color-mix(in srgb, var(--error) 12%, var(--bg-3));
 }
 </style>
