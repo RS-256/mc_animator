@@ -123,6 +123,28 @@ function clearObjectSelection() {
   selectedObjectIds.value = []
 }
 
+function deleteSelectedObjects() {
+  if (!schema.value || selectedObjectIds.value.length === 0) return 0
+
+  const idsToDelete = new Set(selectedObjectIds.value)
+  const remainingObjects = schema.value.objects.filter(object => !idsToDelete.has(object.id))
+
+  schema.value = {
+    ...schema.value,
+    objects: remainingObjects,
+  }
+
+  selectedObjectIds.value = []
+
+  if (idsToDelete.has(activeCameraId.value)) {
+    const nextCamera = remainingObjects.find(object => object.type === 'camera')
+    activeCameraId.value = nextCamera?.id ?? '__camera__'
+    schema.value.metadata.active_camera = nextCamera?.id
+  }
+
+  return idsToDelete.size
+}
+
 let playInterval: ReturnType<typeof setInterval> | null = null
 
 function startPlay() {
@@ -190,6 +212,7 @@ export function useAppState() {
     updateMetadata,
     selectObject,
     clearObjectSelection,
+    deleteSelectedObjects,
     togglePlay,
     startPlay,
     stopPlay,
