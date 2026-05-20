@@ -1,5 +1,5 @@
 import { ref, computed, readonly } from 'vue'
-import type { AnimationSchema, ValidationResult } from '../types/schema'
+import type { AnimationSchema, BlockKeyframe, CameraKeyframe, SceneObject, ValidationResult } from '../types/schema'
 import { validate, parseSchema } from '../core/Validator'
 import { CdnTextureLoader, ZipTextureLoader } from '../texture/TextureLoader'
 import { translate } from '../i18n'
@@ -123,6 +123,36 @@ function clearObjectSelection() {
   selectedObjectIds.value = []
 }
 
+function addObject(id: string, type: SceneObject['type']) {
+  if (!schema.value) return false
+
+  const trimmedId = id.trim()
+  if (!trimmedId || schema.value.objects.some(object => object.id === trimmedId)) {
+    return false
+  }
+
+  const hadCamera = schema.value.objects.some(object => object.type === 'camera')
+  const object: SceneObject = {
+    id: trimmedId,
+    type,
+    keyframes: [],
+  }
+
+  schema.value = {
+    ...schema.value,
+    objects: [...schema.value.objects, object],
+  }
+
+  selectedObjectIds.value = [trimmedId]
+
+  if (type === 'camera' && !hadCamera) {
+    activeCameraId.value = trimmedId
+    schema.value.metadata.active_camera = trimmedId
+  }
+
+  return true
+}
+
 function deleteSelectedObjects() {
   if (!schema.value || selectedObjectIds.value.length === 0) return 0
 
@@ -143,6 +173,117 @@ function deleteSelectedObjects() {
   }
 
   return idsToDelete.size
+}
+
+function addKeyframe(objectId: string) {
+  if (!schema.value) return null
+
+  let addedIndex: number | null = null
+  const objects = schema.value.objects.map(object => {
+    if (object.id !== objectId) return object
+
+    const lastTick = object.keyframes.at(-1)?.tick ?? -1
+    const tick = lastTick + 1
+
+    if (object.type === 'block') {
+      const keyframe: BlockKeyframe = { tick }
+      addedIndex = object.keyframes.length
+      return { ...object, keyframes: [...object.keyframes, keyframe] }
+    }
+
+    const keyframe: CameraKeyframe = { tick }
+    addedIndex = object.keyframes.length
+    return { ...object, keyframes: [...object.keyframes, keyframe] }
+  })
+
+  schema.value = { ...schema.value, objects }
+  return addedIndex
+}
+
+function deleteKeyframes(selections: { objectId: string; index: number }[]) {
+  if (!schema.value || selections.length === 0) return 0
+
+  const indicesByObject = new Map<string, Set<number>>()
+  selections.forEach(selection => {
+    const indices = indicesByObject.get(selection.objectId) ?? new Set<number>()
+    indices.add(selection.index)
+    indicesByObject.set(selection.objectId, indices)
+  })
+
+  let deletedCount = 0
+  const objects = schema.value.objects.map(object => {
+    const indices = indicesByObject.get(object.id)
+    if (!indices) return object
+
+    if (object.type === 'block') {
+      const keyframes = object.keyframes.filter((_, index) => !indices.has(index))
+      deletedCount += object.keyframes.length - keyframes.length
+      return { ...object, keyframes }
+    }
+
+    const keyframes = object.keyframes.filter((_, index) => !indices.has(index))
+    deletedCount += object.keyframes.length - keyframes.length
+    return { ...object, keyframes }
+  })
+
+  schema.value = { ...schema.value, objects }
+  return deletedCount
+}
+
+function updateKeyframe(
+  objectId: string,
+  index: number,
+  patch: Partial<BlockKeyframe | CameraKeyframe>,
+) {
+  if (!schema.value) return
+
+  const objects = schema.value.objects.map(object => {
+    if (object.id !== objectId || !object.keyframes[index]) return object
+
+    const keyframe = {
+      ...object.keyframes[index],
+      ...patch,
+    } as Record<string, unknown>
+
+    Object.entries(patch).forEach(([key, value]) => {
+      if (value === undefined) delete keyframe[key]
+    })
+
+    const keyframes = object.keyframes.map((existingKeyframe, existingIndex) =>
+      existingIndex === index ? keyframe : existingKeyframe,
+    )
+
+    return { ...object, keyframes } as SceneObject
+  })
+
+  schema.value = { ...schema.value, objects }
+}
+
+function reorderKeyframe(objectId: string, fromIndex: number, toIndex: number) {
+  if (!schema.value || fromIndex === toIndex) return false
+
+  let moved = false
+  const objects = schema.value.objects.map(object => {
+    if (object.id !== objectId) return object
+    if (
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= object.keyframes.length ||
+      toIndex >= object.keyframes.length
+    ) {
+      return object
+    }
+
+    const keyframes = [...object.keyframes]
+    const [keyframe] = keyframes.splice(fromIndex, 1)
+    keyframes.splice(toIndex, 0, keyframe)
+    moved = true
+    return { ...object, keyframes } as SceneObject
+  })
+
+  if (!moved) return false
+  schema.value = { ...schema.value, objects }
+  return true
 }
 
 let playInterval: ReturnType<typeof setInterval> | null = null
@@ -212,7 +353,12 @@ export function useAppState() {
     updateMetadata,
     selectObject,
     clearObjectSelection,
+    addObject,
     deleteSelectedObjects,
+    addKeyframe,
+    deleteKeyframes,
+    updateKeyframe,
+    reorderKeyframe,
     togglePlay,
     startPlay,
     stopPlay,

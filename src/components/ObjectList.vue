@@ -1,15 +1,55 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useAppState } from '../composables/useAppState'
 import { useI18n } from '../i18n'
+import type { SceneObject } from '../types/schema'
 import ObjectIcon from './ObjectIcon.vue'
 
-const { schema, selectedObjectIds, selectObject, deleteSelectedObjects } = useAppState()
+const { schema, selectedObjectIds, selectObject, clearObjectSelection, addObject, deleteSelectedObjects } = useAppState()
 const { t } = useI18n()
 const isDeleteConfirmOpen = ref(false)
+const isAddPanelOpen = ref(false)
+const newObjectId = ref('')
+const newObjectType = ref<SceneObject['type']>('block')
+const hasSubmittedAdd = ref(false)
+const objectTypes = ['block', 'camera'] as const
+
+const trimmedNewObjectId = computed(() => newObjectId.value.trim())
+const existingObjectIds = computed(() => new Set(schema.value?.objects.map(object => object.id) ?? []))
+const newObjectIdError = computed(() => {
+  if (!hasSubmittedAdd.value && trimmedNewObjectId.value.length === 0) return ''
+  if (trimmedNewObjectId.value.length === 0) return t('objects.addIdRequired')
+  if (existingObjectIds.value.has(trimmedNewObjectId.value)) {
+    return t('objects.addIdDuplicate', { id: trimmedNewObjectId.value })
+  }
+  return ''
+})
 
 function handleObjectClick(event: MouseEvent, id: string) {
   selectObject(id, event.ctrlKey || event.metaKey)
+}
+
+function openAddPanel() {
+  if (!schema.value) return
+  isAddPanelOpen.value = true
+  hasSubmittedAdd.value = false
+  newObjectId.value = ''
+  newObjectType.value = 'block'
+  clearObjectSelection()
+}
+
+function closeAddPanel() {
+  isAddPanelOpen.value = false
+  hasSubmittedAdd.value = false
+}
+
+function submitAddObject() {
+  hasSubmittedAdd.value = true
+  if (newObjectIdError.value) return
+
+  if (addObject(trimmedNewObjectId.value, newObjectType.value)) {
+    closeAddPanel()
+  }
 }
 
 function handleDeleteSelectedObjects() {
@@ -37,7 +77,8 @@ function confirmDeleteSelectedObjects() {
           class="icon-button"
           :aria-label="t('objects.add')"
           :title="t('objects.add')"
-          disabled
+          :disabled="!schema || isAddPanelOpen"
+          @click="openAddPanel"
         >
           +
         </button>
@@ -46,7 +87,7 @@ function confirmDeleteSelectedObjects() {
           class="icon-button"
           :aria-label="t('objects.delete')"
           :title="t('objects.delete')"
-          :disabled="selectedObjectIds.length === 0"
+          :disabled="selectedObjectIds.length === 0 || isAddPanelOpen"
           @click="handleDeleteSelectedObjects"
         >
           -
@@ -54,7 +95,47 @@ function confirmDeleteSelectedObjects() {
       </div>
     </div>
 
-    <div v-if="schema && schema.objects.length > 0" class="obj-list">
+    <form v-if="isAddPanelOpen" class="add-panel" @submit.prevent="submitAddObject">
+      <label class="field">
+        <span class="field__label">{{ t('objects.addId') }}</span>
+        <input
+          v-model="newObjectId"
+          class="field__input"
+          type="text"
+          autocomplete="off"
+          :placeholder="t('objects.addIdPlaceholder')"
+          :aria-invalid="Boolean(newObjectIdError)"
+          autofocus
+        >
+      </label>
+      <div v-if="newObjectIdError" class="field-error">{{ newObjectIdError }}</div>
+
+      <div class="field">
+        <span class="field__label">{{ t('objects.addType') }}</span>
+        <div class="type-control">
+          <label
+            v-for="type in objectTypes"
+            :key="type"
+            class="type-option"
+            :class="{ 'type-option--active': newObjectType === type }"
+          >
+            <input v-model="newObjectType" type="radio" :value="type">
+            <span>{{ t(type === 'block' ? 'objects.typeBlock' : 'objects.typeCamera') }}</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="add-panel__actions">
+        <button class="form-button form-button--secondary" type="button" @click="closeAddPanel">
+          {{ t('objects.addCancel') }}
+        </button>
+        <button class="form-button form-button--primary" type="submit">
+          {{ t('objects.addRegister') }}
+        </button>
+      </div>
+    </form>
+
+    <div v-else-if="schema && schema.objects.length > 0" class="obj-list">
       <div
         v-for="obj in schema.objects"
         :key="obj.id"
@@ -86,9 +167,6 @@ function confirmDeleteSelectedObjects() {
       <div class="confirm-modal__panel">
         <div class="confirm-modal__header">
           <div class="confirm-modal__title">{{ t('objects.deleteConfirmTitle') }}</div>
-          <button class="confirm-modal__close" type="button" @click="cancelDeleteSelectedObjects">
-            {{ t('objects.deleteCancel') }}
-          </button>
         </div>
         <div class="confirm-modal__body">
           <div class="confirm-msg warning">
@@ -218,6 +296,118 @@ function confirmDeleteSelectedObjects() {
   color: var(--text-muted);
 }
 
+.add-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.field__label {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.field__input {
+  width: 100%;
+  min-height: 30px;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-3);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  outline: none;
+}
+
+.field__input:focus {
+  border-color: var(--accent);
+}
+
+.field__input[aria-invalid="true"] {
+  border-color: var(--error);
+}
+
+.field-error {
+  color: var(--error);
+  font-size: 0.72rem;
+  margin-top: -0.45rem;
+}
+
+.type-control {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+}
+
+.type-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-3);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.type-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.type-option--active {
+  border-color: var(--accent);
+  background: rgba(87, 171, 90, 0.18);
+  color: var(--text);
+}
+
+.add-panel__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.form-button {
+  min-height: 30px;
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 0.78rem;
+}
+
+.form-button--secondary {
+  color: var(--text);
+  background: var(--bg-3);
+}
+
+.form-button--secondary:hover {
+  border-color: var(--text-muted);
+}
+
+.form-button--primary {
+  color: #0f1117;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.form-button--primary:hover {
+  opacity: 0.85;
+}
+
 .confirm-modal {
   position: fixed;
   inset: 0;
@@ -255,7 +445,6 @@ function confirmDeleteSelectedObjects() {
   font-weight: 700;
 }
 
-.confirm-modal__close,
 .confirm-button {
   flex-shrink: 0;
   padding: 0.3rem 0.65rem;
@@ -266,7 +455,6 @@ function confirmDeleteSelectedObjects() {
   font-size: 0.78rem;
 }
 
-.confirm-modal__close:hover,
 .confirm-button--secondary:hover {
   border-color: var(--text-muted);
 }

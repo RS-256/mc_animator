@@ -4,6 +4,7 @@ import ValidationBanner from './components/ValidationBanner.vue'
 import MetadataPanel from './components/MetadataPanel.vue'
 import CameraPanel from './components/CameraPanel.vue'
 import ObjectList from './components/ObjectList.vue'
+import ObjectEditor from './components/ObjectEditor.vue'
 import PreviewCanvas from './components/PreviewCanvas.vue'
 import Timeline from './components/Timeline.vue'
 import ExportPanel from './components/ExportPanel.vue'
@@ -34,6 +35,8 @@ import ExportPanel from './components/ExportPanel.vue'
       <div class="preview-area">
         <PreviewCanvas />
       </div>
+
+      <ObjectEditor />
     </div>
 
     <Timeline />
