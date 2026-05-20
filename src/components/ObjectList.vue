@@ -3,8 +3,12 @@ import { useAppState } from '../composables/useAppState'
 import { useI18n } from '../i18n'
 import ObjectIcon from './ObjectIcon.vue'
 
-const { schema } = useAppState()
+const { schema, selectedObjectIds, selectObject } = useAppState()
 const { t } = useI18n()
+
+function handleObjectClick(event: MouseEvent, id: string) {
+  selectObject(id, event.ctrlKey || event.metaKey)
+}
 </script>
 
 <template>
@@ -16,6 +20,13 @@ const { t } = useI18n()
         v-for="obj in schema.objects"
         :key="obj.id"
         class="obj-item"
+        :class="{ 'obj-item--selected': selectedObjectIds.includes(obj.id) }"
+        role="button"
+        tabindex="0"
+        :aria-pressed="selectedObjectIds.includes(obj.id)"
+        @click="handleObjectClick($event, obj.id)"
+        @keydown.enter.prevent="selectObject(obj.id)"
+        @keydown.space.prevent="selectObject(obj.id)"
       >
         <ObjectIcon :object="obj" />
         <span class="obj-id">{{ obj.id }}</span>
@@ -58,6 +69,23 @@ const { t } = useI18n()
   border-radius: 4px;
   background: var(--bg-3);
   border: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.obj-item:hover {
+  border-color: var(--text-muted);
+}
+
+.obj-item:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.obj-item--selected {
+  background: rgba(87, 171, 90, 0.18);
+  border-color: var(--accent);
 }
 
 .obj-id {

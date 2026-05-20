@@ -12,6 +12,7 @@ const currentTick = ref(0)
 const isPlaying = ref(false)
 const activeCameraId = ref<string>('__camera__')
 const sourceJsonFileName = ref<string | null>(null)
+const selectedObjectIds = ref<string[]>([])
 
 const cdnLoader = new CdnTextureLoader('1.21.4')
 const zipLoader = new ZipTextureLoader(cdnLoader)
@@ -38,6 +39,12 @@ const cameraObjects = computed(() =>
 const blockObjects = computed(() =>
   schema.value?.objects.filter(o => o.type === 'block') ?? [],
 )
+
+const selectedObjects = computed(() => {
+  if (!schema.value) return []
+  const selectedIds = new Set(selectedObjectIds.value)
+  return schema.value.objects.filter(object => selectedIds.has(object.id))
+})
 
 // ── アクション ────────────────────────────────────────────────────
 
@@ -70,6 +77,7 @@ async function loadJson(file: File) {
     sourceJsonFileName.value = file.name
     currentTick.value = 0
     activeCameraId.value = parsed.metadata.active_camera ?? '__camera__'
+    selectedObjectIds.value = []
     cdnLoader.setVersion(parsed.metadata.mc_version)
   }
 }
@@ -96,6 +104,23 @@ function setActiveCameraId(id: string) {
 function updateMetadata(key: string, value: unknown) {
   if (!schema.value) return
   ;(schema.value.metadata as Record<string, unknown>)[key] = value
+}
+
+function selectObject(id: string, multi = false) {
+  if (!multi) {
+    selectedObjectIds.value = [id]
+    return
+  }
+
+  if (selectedObjectIds.value.includes(id)) {
+    selectedObjectIds.value = selectedObjectIds.value.filter(selectedId => selectedId !== id)
+  } else {
+    selectedObjectIds.value = [...selectedObjectIds.value, id]
+  }
+}
+
+function clearObjectSelection() {
+  selectedObjectIds.value = []
 }
 
 let playInterval: ReturnType<typeof setInterval> | null = null
@@ -134,6 +159,7 @@ export function useAppState() {
     isPlaying: readonly(isPlaying),
     activeCameraId: readonly(activeCameraId),
     sourceJsonFileName: readonly(sourceJsonFileName),
+    selectedObjectIds: readonly(selectedObjectIds),
     isExporting: readonly(isExporting),
     exportProgress: readonly(exportProgress),
 
@@ -143,6 +169,7 @@ export function useAppState() {
     ticksPerFrame,
     cameraObjects,
     blockObjects,
+    selectedObjects,
     fps,
     tps,
 
@@ -161,6 +188,8 @@ export function useAppState() {
     setTick,
     setActiveCameraId,
     updateMetadata,
+    selectObject,
+    clearObjectSelection,
     togglePlay,
     startPlay,
     stopPlay,
