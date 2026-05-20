@@ -82,6 +82,33 @@ async function loadJson(file: File) {
   }
 }
 
+function createNewJson() {
+  const nextSchema: AnimationSchema = {
+    metadata: {
+      format_version: 1,
+      mc_version: '26.1.2',
+      resolution: [1920, 1080],
+      fps: 60,
+      ticks_per_second: 20,
+      duration_ticks: 100,
+      active_camera: '__camera__',
+    },
+    objects: [{
+      id: '__camera__',
+      type: 'camera',
+      keyframes: [],
+    }],
+  }
+
+  schema.value = nextSchema
+  validation.value = null
+  currentTick.value = 0
+  activeCameraId.value = '__camera__'
+  selectedObjectIds.value = []
+  sourceJsonFileName.value = 'animation.json'
+  cdnLoader.setVersion(nextSchema.metadata.mc_version)
+}
+
 function dismissValidation() {
   validation.value = null
 }
@@ -346,6 +373,7 @@ export function useAppState() {
 
     // actions
     loadJson,
+    createNewJson,
     loadResourcePack,
     dismissValidation,
     setTick,
