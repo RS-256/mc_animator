@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useAppState } from '../composables/useAppState'
 import type { GizmoSettings } from '../types/schema'
 import { useI18n } from '../i18n'
 
 const { schema, totalFrames, updateMetadata } = useAppState()
 const { t } = useI18n()
+const isOpen = ref(true)
 
 const meta = computed(() => schema.value?.metadata)
 
@@ -61,9 +62,17 @@ function onGizmoOriginChange(index: 0 | 1, e: Event) {
 
 <template>
   <aside class="panel">
-    <div class="panel__title">{{ t('metadata.title') }}</div>
+    <button
+      type="button"
+      class="panel__header"
+      :aria-expanded="isOpen"
+      @click="isOpen = !isOpen"
+    >
+      <span class="panel__caret" aria-hidden="true" />
+      <span class="panel__title">{{ t('metadata.title') }}</span>
+    </button>
 
-    <template v-if="meta">
+    <template v-if="isOpen && meta">
       <div class="field-group">
         <div class="field">
           <label>{{ t('metadata.mcVersion') }}</label>
@@ -150,7 +159,7 @@ function onGizmoOriginChange(index: 0 | 1, e: Event) {
       </div>
     </template>
 
-    <div v-else class="empty-state">{{ t('metadata.loadJsonPrompt') }}</div>
+    <div v-else-if="isOpen" class="empty-state">{{ t('metadata.loadJsonPrompt') }}</div>
   </aside>
 </template>
 
@@ -160,13 +169,35 @@ function onGizmoOriginChange(index: 0 | 1, e: Event) {
   overflow-y: auto;
 }
 
+.panel__header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+  text-align: left;
+}
+
+.panel__caret {
+  width: 0;
+  height: 0;
+  flex: 0 0 auto;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid var(--text-muted);
+  transition: transform 0.12s;
+}
+
+.panel__header[aria-expanded="true"] .panel__caret {
+  transform: rotate(90deg);
+}
+
 .panel__title {
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-  margin-bottom: 0.75rem;
 }
 
 .field-group {
