@@ -10,6 +10,11 @@ export const SUPPORTED_EASINGS = [
   'easeInOutExpo',
 ] as const
 export type EasingType = typeof SUPPORTED_EASINGS[number]
+export const SUPPORTED_CAMERA_PATHS = [
+  'linear',
+  'bezier',
+] as const
+export type CameraPathType = typeof SUPPORTED_CAMERA_PATHS[number]
 
 export interface BlockState {
   [key: string]: string
@@ -42,6 +47,7 @@ export interface CameraKeyframe {
   look_at?: Vec3
   fov?: number
   easing?: EasingType
+  path?: CameraPathType          // 前のキーフレームからこのキーフレームまでの pos 補間
 }
 
 // ブロックオブジェクト

@@ -15,6 +15,7 @@ const { selectedObjects, addKeyframe, deleteKeyframes, updateKeyframe, reorderKe
 const { t } = useI18n()
 const selectedKeyframes = ref<string[]>([])
 const stateErrors = ref<Record<string, string>>({})
+const inputDrafts = ref<Record<string, string>>({})
 const draggedKeyframe = ref<KeyframeSelection | null>(null)
 const dragOverKey = ref<string | null>(null)
 
@@ -31,6 +32,16 @@ watch(
       ),
     )
     selectedKeyframes.value = selectedKeyframes.value.filter(key => validKeys.has(key))
+    inputDrafts.value = Object.fromEntries(
+      Object.entries(inputDrafts.value).filter(([key]) => {
+        try {
+          const [objectId, index] = JSON.parse(key) as [string, number]
+          return validKeys.has(keyframeKey(objectId, index))
+        } catch {
+          return false
+        }
+      }),
+    )
   },
 )
 
@@ -47,6 +58,15 @@ function objectTypeLabel(object: SceneObject) {
 
 function keyframeKey(objectId: string, index: number) {
   return JSON.stringify([objectId, index])
+}
+
+function inputDraftKey(
+  objectId: string,
+  index: number,
+  field: string,
+  componentIndex: number | null = null,
+) {
+  return JSON.stringify([objectId, index, field, componentIndex])
 }
 
 function isKeyframeSelected(objectId: string, index: number) {
@@ -153,12 +173,63 @@ function updateMultiplier(objectId: string, index: number, value: string) {
   updateKeyframe(objectId, index, { multiplier: parseNumber(value) })
 }
 
-function updateFov(objectId: string, index: number, value: string) {
-  updateKeyframe(objectId, index, { fov: parseNumber(value) })
+function setInputDraft(
+  objectId: string,
+  index: number,
+  field: string,
+  value: string,
+  componentIndex: number | null = null,
+) {
+  inputDrafts.value = {
+    ...inputDrafts.value,
+    [inputDraftKey(objectId, index, field, componentIndex)]: value,
+  }
+}
+
+function fovInputValue(objectId: string, index: number, keyframe: CameraKeyframe) {
+  return inputDrafts.value[inputDraftKey(objectId, index, 'fov')] ?? String(keyframe.fov ?? '')
+}
+
+function commitFov(objectId: string, index: number, value: string) {
+  setInputDraft(objectId, index, 'fov', value)
+
+  const trimmed = value.trim()
+  if (trimmed === '') {
+    updateKeyframe(objectId, index, { fov: undefined })
+    return
+  }
+
+  const fov = parseNumber(trimmed)
+  if (fov !== undefined && fov > 0) {
+    updateKeyframe(objectId, index, { fov })
+  }
 }
 
 function vectorComponent(value: Vec3 | CameraPosition | undefined, index: number) {
   return value?.[index] ?? ''
+}
+
+function vectorInputValue(
+  objectId: string,
+  index: number,
+  field: 'pos' | 'look_at',
+  source: Vec3 | CameraPosition | undefined,
+  componentIndex: number,
+) {
+  return inputDrafts.value[inputDraftKey(objectId, index, field, componentIndex)]
+    ?? String(vectorComponent(source, componentIndex))
+}
+
+function vectorDraftValues(
+  objectId: string,
+  index: number,
+  field: 'pos' | 'look_at',
+  source: Vec3 | CameraPosition | undefined,
+) {
+  return [0, 1, 2].map(componentIndex =>
+    inputDrafts.value[inputDraftKey(objectId, index, field, componentIndex)]
+      ?? String(vectorComponent(source, componentIndex)),
+  )
 }
 
 function updateNumberVector(
@@ -169,8 +240,9 @@ function updateNumberVector(
   componentIndex: number,
   value: string,
 ) {
-  const next = [...(source ?? ['', '', ''])] as Array<number | string>
+  const next = vectorDraftValues(objectId, index, field, source)
   next[componentIndex] = value.trim()
+  setInputDraft(objectId, index, field, value, componentIndex)
 
   if (next.every(component => String(component).trim() === '')) {
     updateKeyframe(objectId, index, { [field]: undefined })
@@ -190,8 +262,9 @@ function updateCameraPosition(
   componentIndex: number,
   value: string,
 ) {
-  const next = [...(source ?? ['', '', ''])] as Array<number | string>
+  const next = vectorDraftValues(objectId, index, 'pos', source)
   next[componentIndex] = value.trim()
+  setInputDraft(objectId, index, 'pos', value, componentIndex)
 
   if (next.every(component => String(component).trim() === '')) {
     updateKeyframe(objectId, index, { pos: undefined })
@@ -366,7 +439,8 @@ function updateState(objectId: string, index: number, value: string) {
                     class="field__input"
                     type="number"
                     step="any"
-                    :value="vectorComponent((keyframe as BlockKeyframe).pos, axisIndex - 1)"
+                    :value="vectorInputValue(object.id, index, 'pos', (keyframe as BlockKeyframe).pos, axisIndex - 1)"
+                    @input="setInputDraft(object.id, index, 'pos', eventValue($event), axisIndex - 1)"
                     @change="updateNumberVector(object.id, index, 'pos', (keyframe as BlockKeyframe).pos, axisIndex - 1, eventValue($event))"
                   >
                 </div>
@@ -391,7 +465,8 @@ function updateState(objectId: string, index: number, value: string) {
                     :key="axisIndex"
                     class="field__input"
                     type="text"
-                    :value="vectorComponent((keyframe as CameraKeyframe).pos, axisIndex - 1)"
+                    :value="vectorInputValue(object.id, index, 'pos', (keyframe as CameraKeyframe).pos, axisIndex - 1)"
+                    @input="setInputDraft(object.id, index, 'pos', eventValue($event), axisIndex - 1)"
                     @change="updateCameraPosition(object.id, index, (keyframe as CameraKeyframe).pos, axisIndex - 1, eventValue($event))"
                   >
                 </div>
@@ -406,7 +481,8 @@ function updateState(objectId: string, index: number, value: string) {
                     class="field__input"
                     type="number"
                     step="any"
-                    :value="vectorComponent((keyframe as CameraKeyframe).look_at, axisIndex - 1)"
+                    :value="vectorInputValue(object.id, index, 'look_at', (keyframe as CameraKeyframe).look_at, axisIndex - 1)"
+                    @input="setInputDraft(object.id, index, 'look_at', eventValue($event), axisIndex - 1)"
                     @change="updateNumberVector(object.id, index, 'look_at', (keyframe as CameraKeyframe).look_at, axisIndex - 1, eventValue($event))"
                   >
                 </div>
@@ -418,8 +494,10 @@ function updateState(objectId: string, index: number, value: string) {
                   class="field__input"
                   type="number"
                   step="any"
-                  :value="(keyframe as CameraKeyframe).fov ?? ''"
-                  @change="updateFov(object.id, index, eventValue($event))"
+                  :value="fovInputValue(object.id, index, keyframe as CameraKeyframe)"
+                  @input="setInputDraft(object.id, index, 'fov', eventValue($event))"
+                  @change="commitFov(object.id, index, eventValue($event))"
+                  @keydown.enter.prevent="commitFov(object.id, index, eventValue($event))"
                 >
               </label>
 
@@ -648,7 +726,7 @@ function updateState(objectId: string, index: number, value: string) {
 }
 
 .form-row--tick {
-  align-items: center;
+  align-items: flex-end;
 }
 
 .field {

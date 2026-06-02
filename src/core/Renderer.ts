@@ -60,7 +60,7 @@ export class SceneRenderer {
     this.camera.updateProjectionMatrix()
   }
 
-  async loadSchema(schema: AnimationSchema, loader: IAssetLoader) {
+  async loadSchema(schema: AnimationSchema, loader: IAssetLoader, tick = this.currentTick) {
     this.schema = schema
     this.textureLoader = loader
     this.blockMeshes.forEach(entry => {
@@ -74,7 +74,7 @@ export class SceneRenderer {
     const { r, g, b, a } = parseARGB(bgHex)
     this.renderer.setClearColor(new THREE.Color(r, g, b), a)
 
-    await this.updateScene(0)
+    await this.updateScene(tick)
   }
 
   private disposeObject(object: THREE.Object3D) {

@@ -3,7 +3,7 @@ import type {
   ValidationResult,
   ValidationMessage,
 } from '../types/schema'
-import { MAX_FRAMES, DEFAULT_CAMERA_ID, SUPPORTED_EASINGS } from '../types/schema'
+import { MAX_FRAMES, DEFAULT_CAMERA_ID, SUPPORTED_EASINGS, SUPPORTED_CAMERA_PATHS } from '../types/schema'
 import { translate, type I18nParams, type MessageKey } from '../i18n'
 
 const ARGB_RE = /^#[0-9A-Fa-f]{8}$/
@@ -192,6 +192,17 @@ export function validate(data: unknown): ValidationResult {
         }
 
         if (obj.type === 'camera') {
+          const path = keyframe.path
+          if (
+            path !== undefined &&
+            (typeof path !== 'string' || !(SUPPORTED_CAMERA_PATHS as readonly string[]).includes(path))
+          ) {
+            msgs.push(validationMessage('error', 'validation.cameraPathInvalid', {
+              id,
+              index: k,
+              paths: SUPPORTED_CAMERA_PATHS.join(', '),
+            }))
+          }
           if (keyframe.pos !== undefined && !isCameraPos(keyframe.pos)) {
             msgs.push(validationMessage('error', 'validation.cameraPosInvalid', { id, index: k }))
           }

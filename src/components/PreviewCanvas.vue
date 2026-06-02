@@ -105,7 +105,7 @@ onMounted(() => {
 // schema が変わったらシーンをリロード
 watch(schema, async (s) => {
   if (!sceneRenderer || !s) return
-  await sceneRenderer.loadSchema(s, zipLoader)
+  await sceneRenderer.loadSchema(s, zipLoader, currentTick.value)
   fitCanvas()
 })
 

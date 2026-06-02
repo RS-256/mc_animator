@@ -45,6 +45,31 @@ function lerpVec3(
   return [lerpNumber(a[0], b[0], t), lerpNumber(a[1], b[1], t), lerpNumber(a[2], b[2], t)]
 }
 
+function addVec3(a: Vec3, b: Vec3): Vec3 {
+  return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+}
+
+function subVec3(a: Vec3, b: Vec3): Vec3 {
+  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+}
+
+function scaleVec3(v: Vec3, scale: number): Vec3 {
+  return [v[0] * scale, v[1] * scale, v[2] * scale]
+}
+
+function cubicBezierVec3(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: number): Vec3 {
+  const oneMinusT = 1 - t
+  const a = oneMinusT * oneMinusT * oneMinusT
+  const b = 3 * oneMinusT * oneMinusT * t
+  const c = 3 * oneMinusT * t * t
+  const d = t * t * t
+  return [
+    a * p0[0] + b * p1[0] + c * p2[0] + d * p3[0],
+    a * p0[1] + b * p1[1] + c * p2[1] + d * p3[1],
+    a * p0[2] + b * p1[2] + c * p2[2] + d * p3[2],
+  ]
+}
+
 // ── tick_mode の解決（relative → absolute に変換） ─────────────────
 
 function resolveAbsoluteTicks<T extends { tick: number; tick_mode?: string }>(
