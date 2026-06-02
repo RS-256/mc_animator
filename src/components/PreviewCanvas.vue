@@ -6,12 +6,13 @@ import { SceneRenderer } from '../core/Renderer'
 import { resolveScene } from '../core/Interpolator'
 import { useI18n } from '../i18n'
 
-const { schema, currentTick, zipLoader } = useAppState()
+const { schema, currentTick, zipLoader, loadJson } = useAppState()
 const { t } = useI18n()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
 const wrapperRef = ref<HTMLDivElement | null>(null)
 const displaySize = ref({ width: 0, height: 0 })
+const isJsonDragOver = ref(false)
 let sceneRenderer: SceneRenderer | null = null
 
 const GIZMO_AXIS_LENGTH = 36
@@ -90,6 +91,41 @@ function fitCanvas() {
   }
 }
 
+function isJsonDrop(event: DragEvent) {
+  const items = Array.from(event.dataTransfer?.items ?? [])
+  if (items.some(item => item.kind === 'file' && item.type === 'application/json')) return true
+
+  const files = Array.from(event.dataTransfer?.files ?? [])
+  return files.some(file => file.name.toLowerCase().endsWith('.json'))
+}
+
+function handleJsonDragOver(event: DragEvent) {
+  if (schema.value || !isJsonDrop(event)) return
+  event.preventDefault()
+  isJsonDragOver.value = true
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+}
+
+function handleJsonDragLeave(event: DragEvent) {
+  const target = event.currentTarget as HTMLElement
+  const nextTarget = event.relatedTarget as Node | null
+  if (!nextTarget || !target.contains(nextTarget)) {
+    isJsonDragOver.value = false
+  }
+}
+
+function handleJsonDrop(event: DragEvent) {
+  if (schema.value) return
+
+  event.preventDefault()
+  isJsonDragOver.value = false
+
+  const file = Array.from(event.dataTransfer?.files ?? [])
+    .find(candidate => candidate.name.toLowerCase().endsWith('.json'))
+
+  if (file) loadJson(file)
+}
+
 onMounted(() => {
   if (!canvasRef.value) return
   sceneRenderer = new SceneRenderer(canvasRef.value)
@@ -117,7 +153,14 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div ref="wrapperRef" class="preview-wrapper">
+  <div
+    ref="wrapperRef"
+    class="preview-wrapper"
+    :class="{ 'preview-wrapper--drop-active': isJsonDragOver }"
+    @dragover="handleJsonDragOver"
+    @dragleave="handleJsonDragLeave"
+    @drop="handleJsonDrop"
+  >
     <div class="preview-stage" :style="stageStyle">
       <canvas ref="canvasRef" class="preview-canvas" />
       <svg
@@ -140,9 +183,13 @@ onUnmounted(() => {
       </svg>
     </div>
     <div v-if="!schema" class="preview-placeholder">
-      <div class="placeholder-content">
+      <div
+        class="placeholder-content"
+        :class="{ 'placeholder-content--drop-active': isJsonDragOver }"
+      >
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" opacity="0.3"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg>
-        <p>{{ t('preview.placeholder') }}</p>
+        <p class="placeholder-content__title">{{ t('preview.dropJsonTitle') }}</p>
+        <p class="placeholder-content__hint">{{ t('preview.dropJsonHint') }}</p>
       </div>
     </div>
   </div>
@@ -158,6 +205,11 @@ onUnmounted(() => {
   justify-content: center;
   overflow: hidden;
   min-height: 0;
+}
+
+.preview-wrapper--drop-active {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .preview-stage {
@@ -206,12 +258,30 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.4rem;
   color: var(--text-muted);
+  padding: 1rem;
+  text-align: center;
+  transition: color 0.15s, transform 0.15s;
+}
+
+.placeholder-content--drop-active {
+  color: var(--accent);
+  transform: translateY(-2px);
 }
 
 .placeholder-content p {
-  font-size: 0.8rem;
   margin: 0;
+}
+
+.placeholder-content__title {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.placeholder-content__hint {
+  max-width: 28rem;
+  font-size: 0.75rem;
 }
 </style>

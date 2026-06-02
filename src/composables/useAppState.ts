@@ -332,13 +332,18 @@ let playInterval: ReturnType<typeof setInterval> | null = null
 
 function startPlay() {
   if (isPlaying.value) return
+  if (currentTick.value >= totalTicks.value) {
+    setTick(0)
+  }
+
   isPlaying.value = true
   const msPerFrame = 1000 / fps.value
   playInterval = setInterval(() => {
     if (currentTick.value >= totalTicks.value) {
-      currentTick.value = 0
+      setTick(0)
     } else {
-      setTick(currentTick.value + ticksPerFrame.value)
+      const nextTick = currentTick.value + ticksPerFrame.value
+      setTick(nextTick > totalTicks.value ? totalTicks.value : nextTick)
     }
   }, msPerFrame)
 }

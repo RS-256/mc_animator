@@ -36,6 +36,7 @@ export class SceneRenderer {
   private blockMeshes = new Map<string, BlockMeshEntry>()
 
   private currentTick = 0
+  private updateVersion = 0
 
   constructor(canvas: HTMLCanvasElement, options: SceneRendererOptions = {}) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true })
@@ -89,7 +90,7 @@ export class SceneRenderer {
 
   async updateScene(tick: number) {
     if (!this.schema || !this.textureLoader) return
-    this.currentTick = tick
+    const version = ++this.updateVersion
 
     const resolved = resolveScene(this.schema, tick)
 
@@ -134,6 +135,7 @@ export class SceneRenderer {
           this.textureLoader!,
           this.schema!.metadata.mc_version,
         )
+        if (version !== this.updateVersion) return
         // air 等は null が返るのでスキップ
         if (!meshData) continue
 
@@ -146,18 +148,24 @@ export class SceneRenderer {
       }
     }
 
+    this.currentTick = tick
     this.renderer.render(this.scene, this.camera)
   }
 
   startPreview(getTick: () => number) {
     const loop = async () => {
-      const tick = getTick()
-      if (tick !== this.currentTick) {
-        await this.updateScene(tick)
-      } else {
-        this.renderer.render(this.scene, this.camera)
+      try {
+        const tick = getTick()
+        if (tick !== this.currentTick) {
+          await this.updateScene(tick)
+        } else {
+          this.renderer.render(this.scene, this.camera)
+        }
+      } catch (error) {
+        console.error('Preview render failed:', error)
+      } finally {
+        this.animFrameId = requestAnimationFrame(loop)
       }
-      this.animFrameId = requestAnimationFrame(loop)
     }
     this.animFrameId = requestAnimationFrame(loop)
   }

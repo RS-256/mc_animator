@@ -58,11 +58,12 @@ function scaleVec3(v: Vec3, scale: number): Vec3 {
 }
 
 function cubicBezierVec3(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: number): Vec3 {
-  const oneMinusT = 1 - t
-  const a = oneMinusT * oneMinusT * oneMinusT
-  const b = 3 * oneMinusT * oneMinusT * t
-  const c = 3 * oneMinusT * t * t
+  const u = 1 - t
+  const a = u * u * u
+  const b = 3 * u * u * t
+  const c = 3 * u * t * t
   const d = t * t * t
+
   return [
     a * p0[0] + b * p1[0] + c * p2[0] + d * p3[0],
     a * p0[1] + b * p1[1] + c * p2[1] + d * p3[1],
@@ -217,6 +218,38 @@ function resolveRelativeCameraPositions(
   })
 }
 
+function hasBezierSegmentTo(kfs: AbsoluteCameraKeyframe[], index: number): boolean {
+  return index > 0 && kfs[index].path === 'bezier'
+}
+
+function resolveCameraBezierPathPos(
+  kfs: AbsoluteCameraKeyframe[],
+  prevIdx: number,
+  nextIdx: number,
+  prevPos: Vec3,
+  nextPos: Vec3,
+  t: number,
+): Vec3 {
+  const hasPreviousBezierSegment = hasBezierSegmentTo(kfs, prevIdx)
+  const hasNextBezierSegment = hasBezierSegmentTo(kfs, nextIdx + 1)
+
+  const prevPrevPos = hasPreviousBezierSegment
+    ? resolveCamField<Vec3>(kfs, prevIdx - 1, 'pos', prevPos)
+    : prevPos
+  const nextNextPos = hasNextBezierSegment
+    ? resolveCamField<Vec3>(kfs, nextIdx + 1, 'pos', nextPos)
+    : nextPos
+
+  const control1 = hasPreviousBezierSegment
+    ? addVec3(prevPos, scaleVec3(subVec3(nextPos, prevPrevPos), 1 / 6))
+    : addVec3(prevPos, scaleVec3(subVec3(nextPos, prevPos), 1 / 3))
+  const control2 = hasNextBezierSegment
+    ? subVec3(nextPos, scaleVec3(subVec3(nextNextPos, prevPos), 1 / 6))
+    : subVec3(nextPos, scaleVec3(subVec3(nextPos, prevPos), 1 / 3))
+
+  return cubicBezierVec3(prevPos, control1, control2, nextPos, t)
+}
+
 export function resolveCamera(
   obj: CameraObject,
   tick: number,
@@ -266,7 +299,9 @@ export function resolveCamera(
   const nextFov = resolveCamField<number>(kfs, nextIdx, 'fov', prevFov)
 
   return {
-    pos: lerpVec3(prevPos, nextPos, t),
+    pos: next.path === 'bezier'
+      ? resolveCameraBezierPathPos(kfs, prevIdx, nextIdx, prevPos, nextPos, t)
+      : lerpVec3(prevPos, nextPos, t),
     look_at: lerpVec3(prevLookAt, nextLookAt, t),
     fov: lerpNumber(prevFov, nextFov, t),
   }
