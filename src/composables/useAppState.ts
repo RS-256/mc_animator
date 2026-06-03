@@ -12,6 +12,8 @@ const currentTick = ref(0)
 const isPlaying = ref(false)
 const activeCameraId = ref<string>('__camera__')
 const sourceJsonFileName = ref<string | null>(null)
+const resourcePackFileName = ref<string | null>(null)
+const resourcePackRevision = ref(0)
 const selectedObjectIds = ref<string[]>([])
 const savedSchemaText = ref<string | null>(null)
 
@@ -130,6 +132,8 @@ function dismissValidation() {
 
 async function loadResourcePack(file: File) {
   await zipLoader.setResourcePack(file)
+  resourcePackFileName.value = file.name
+  resourcePackRevision.value += 1
 }
 
 function setTick(tick: number) {
@@ -369,6 +373,8 @@ export function useAppState() {
     isPlaying: readonly(isPlaying),
     activeCameraId: readonly(activeCameraId),
     sourceJsonFileName: readonly(sourceJsonFileName),
+    resourcePackFileName: readonly(resourcePackFileName),
+    resourcePackRevision: readonly(resourcePackRevision),
     selectedObjectIds: readonly(selectedObjectIds),
     isExporting: readonly(isExporting),
     exportProgress: readonly(exportProgress),

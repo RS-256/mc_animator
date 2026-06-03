@@ -6,7 +6,7 @@ import { SceneRenderer } from '../core/Renderer'
 import { resolveScene } from '../core/Interpolator'
 import { useI18n } from '../i18n'
 
-const { schema, currentTick, zipLoader, loadJson } = useAppState()
+const { schema, currentTick, resourcePackRevision, zipLoader, loadJson } = useAppState()
 const { t } = useI18n()
 
 const canvasRef = ref<HTMLCanvasElement | null>(null)
@@ -142,6 +142,12 @@ onMounted(() => {
 watch(schema, async (s) => {
   if (!sceneRenderer || !s) return
   await sceneRenderer.loadSchema(s, zipLoader, currentTick.value)
+  fitCanvas()
+})
+
+watch(resourcePackRevision, async () => {
+  if (!sceneRenderer || !schema.value) return
+  await sceneRenderer.loadSchema(schema.value, zipLoader, currentTick.value)
   fitCanvas()
 })
 
