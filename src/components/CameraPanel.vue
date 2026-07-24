@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useAppState } from '../composables/useAppState'
-import { useI18n } from '../i18n'
+import { useAppState } from "../composables/useAppState"
+import { useI18n } from "../i18n"
 
 const { cameraObjects, activeCameraId, setActiveCameraId } = useAppState()
 const { t } = useI18n()

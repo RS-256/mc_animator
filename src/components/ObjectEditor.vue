@@ -1,9 +1,17 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import { useAppState } from '../composables/useAppState'
-import { useI18n } from '../i18n'
-import { SUPPORTED_EASINGS } from '../types/schema'
-import type { BlockKeyframe, BlockState, CameraKeyframe, CameraPosition, EasingType, SceneObject, Vec3 } from '../types/schema'
+import { computed, ref, watch } from "vue"
+import { useAppState } from "../composables/useAppState"
+import { useI18n } from "../i18n"
+import { SUPPORTED_EASINGS } from "../types/schema"
+import type {
+  BlockKeyframe,
+  BlockState,
+  CameraKeyframe,
+  CameraPosition,
+  EasingType,
+  SceneObject,
+  Vec3
+} from "../types/schema"
 
 type Keyframe = BlockKeyframe | CameraKeyframe
 interface KeyframeSelection {
@@ -13,122 +21,115 @@ interface KeyframeSelection {
 
 const { selectedObjects, addKeyframe, deleteKeyframes, updateKeyframe, reorderKeyframe } = useAppState()
 const { t } = useI18n()
-const selectedKeyframes = ref<string[]>([])
-const stateErrors = ref<Record<string, string>>({})
-const inputDrafts = ref<Record<string, string>>({})
-const draggedKeyframe = ref<KeyframeSelection | null>(null)
-const dragOverKey = ref<string | null>(null)
+const selectedKeyframes = ref< string[] >( [] )
+const stateErrors = ref< Record< string, string > >( {} )
+const inputDrafts = ref< Record< string, string > >( {} )
+const draggedKeyframe = ref< KeyframeSelection | null >( null )
+const dragOverKey = ref< string | null >( null )
 
-const hasSelection = computed(() => selectedObjects.value.length > 0)
-const canAddKeyframe = computed(() => selectedObjects.value.length === 1)
-const canDeleteKeyframes = computed(() => selectedKeyframes.value.length > 0)
+const hasSelection = computed( () => selectedObjects.value.length > 0 )
+const canAddKeyframe = computed( () => selectedObjects.value.length === 1 )
+const canDeleteKeyframes = computed( () => selectedKeyframes.value.length > 0 )
 
 watch(
-  () => selectedObjects.value.map(object => `${object.id}:${object.keyframes.length}`).join('|'),
+  () => selectedObjects.value.map( ( object ) => `${ object.id }:${ object.keyframes.length }` ).join( "|" ),
   () => {
     const validKeys = new Set(
-      selectedObjects.value.flatMap(object =>
-        object.keyframes.map((_, index) => keyframeKey(object.id, index)),
-      ),
+      selectedObjects.value.flatMap( ( object ) =>
+        object.keyframes.map( ( _, index ) => keyframeKey( object.id, index ) )
+      )
     )
-    selectedKeyframes.value = selectedKeyframes.value.filter(key => validKeys.has(key))
+    selectedKeyframes.value = selectedKeyframes.value.filter( ( key ) => validKeys.has( key ) )
     inputDrafts.value = Object.fromEntries(
-      Object.entries(inputDrafts.value).filter(([key]) => {
+      Object.entries( inputDrafts.value ).filter( ( [ key ] ) => {
         try {
-          const [objectId, index] = JSON.parse(key) as [string, number]
-          return validKeys.has(keyframeKey(objectId, index))
+          const [ objectId, index ] = JSON.parse( key ) as [ string, number ]
+          return validKeys.has( keyframeKey( objectId, index ) )
         } catch {
           return false
         }
-      }),
+      } )
     )
-  },
+  }
 )
 
-function keyframeTitle(keyframe: Keyframe, index: number) {
-  const tickLabel = keyframe.tick_mode === 'relative'
-    ? `+${keyframe.tick}`
-    : String(keyframe.tick)
-  return `#${index + 1} / tick ${tickLabel}`
+function keyframeTitle( keyframe: Keyframe, index: number ) {
+  const tickLabel = keyframe.tick_mode === "relative" ? `+${ keyframe.tick }` : String( keyframe.tick )
+  return `#${ index + 1 } / tick ${ tickLabel }`
 }
 
-function objectTypeLabel(object: SceneObject) {
-  return t(object.type === 'block' ? 'objects.typeBlock' : 'objects.typeCamera')
+function objectTypeLabel( object: SceneObject ) {
+  return t( object.type === "block" ? "objects.typeBlock" : "objects.typeCamera" )
 }
 
-function keyframeKey(objectId: string, index: number) {
-  return JSON.stringify([objectId, index])
+function keyframeKey( objectId: string, index: number ) {
+  return JSON.stringify( [ objectId, index ] )
 }
 
-function inputDraftKey(
-  objectId: string,
-  index: number,
-  field: string,
-  componentIndex: number | null = null,
-) {
-  return JSON.stringify([objectId, index, field, componentIndex])
+function inputDraftKey( objectId: string, index: number, field: string, componentIndex: number | null = null ) {
+  return JSON.stringify( [ objectId, index, field, componentIndex ] )
 }
 
-function isKeyframeSelected(objectId: string, index: number) {
-  return selectedKeyframes.value.includes(keyframeKey(objectId, index))
+function isKeyframeSelected( objectId: string, index: number ) {
+  return selectedKeyframes.value.includes( keyframeKey( objectId, index ) )
 }
 
-function selectKeyframe(event: MouseEvent, objectId: string, index: number) {
-  const key = keyframeKey(objectId, index)
+function selectKeyframe( event: MouseEvent, objectId: string, index: number ) {
+  const key = keyframeKey( objectId, index )
 
-  if (event.ctrlKey || event.metaKey) {
-    selectedKeyframes.value = selectedKeyframes.value.includes(key)
-      ? selectedKeyframes.value.filter(selectedKey => selectedKey !== key)
-      : [...selectedKeyframes.value, key]
+  if ( event.ctrlKey || event.metaKey ) {
+    selectedKeyframes.value = selectedKeyframes.value.includes( key )
+      ? selectedKeyframes.value.filter( ( selectedKey ) => selectedKey !== key )
+      : [ ...selectedKeyframes.value, key ]
     return
   }
 
-  selectedKeyframes.value = [key]
+  selectedKeyframes.value = [ key ]
 }
 
 function parseSelectedKeyframes(): KeyframeSelection[] {
-  return selectedKeyframes.value.map(key => {
-    const [objectId, index] = JSON.parse(key) as [string, number]
+  return selectedKeyframes.value.map( ( key ) => {
+    const [ objectId, index ] = JSON.parse( key ) as [ string, number ]
     return { objectId, index }
-  })
+  } )
 }
 
 function handleAddKeyframe() {
-  const object = selectedObjects.value[0]
-  if (!object || selectedObjects.value.length !== 1) return
+  const object = selectedObjects.value[ 0 ]
+  if ( ! object || selectedObjects.value.length !== 1 ) return
 
-  const addedIndex = addKeyframe(object.id)
-  if (addedIndex !== null) {
-    selectedKeyframes.value = [keyframeKey(object.id, addedIndex)]
+  const addedIndex = addKeyframe( object.id )
+  if ( addedIndex !== null ) {
+    selectedKeyframes.value = [ keyframeKey( object.id, addedIndex ) ]
   }
 }
 
 function handleDeleteKeyframes() {
-  const deletedCount = deleteKeyframes(parseSelectedKeyframes())
-  if (deletedCount > 0) selectedKeyframes.value = []
+  const deletedCount = deleteKeyframes( parseSelectedKeyframes() )
+  if ( deletedCount > 0 ) selectedKeyframes.value = []
 }
 
-function startKeyframeDrag(event: DragEvent, objectId: string, index: number) {
+function startKeyframeDrag( event: DragEvent, objectId: string, index: number ) {
   draggedKeyframe.value = { objectId, index }
-  selectedKeyframes.value = [keyframeKey(objectId, index)]
-  event.dataTransfer?.setData('text/plain', keyframeKey(objectId, index))
-  if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move'
+  selectedKeyframes.value = [ keyframeKey( objectId, index ) ]
+  event.dataTransfer?.setData( "text/plain", keyframeKey( objectId, index ) )
+  if ( event.dataTransfer ) event.dataTransfer.effectAllowed = "move"
 }
 
-function handleKeyframeDragOver(event: DragEvent, objectId: string, index: number) {
-  if (!draggedKeyframe.value || draggedKeyframe.value.objectId !== objectId) return
+function handleKeyframeDragOver( event: DragEvent, objectId: string, index: number ) {
+  if ( ! draggedKeyframe.value || draggedKeyframe.value.objectId !== objectId ) return
   event.preventDefault()
-  dragOverKey.value = keyframeKey(objectId, index)
-  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  dragOverKey.value = keyframeKey( objectId, index )
+  if ( event.dataTransfer ) event.dataTransfer.dropEffect = "move"
 }
 
-function handleKeyframeDrop(event: DragEvent, objectId: string, index: number) {
+function handleKeyframeDrop( event: DragEvent, objectId: string, index: number ) {
   event.preventDefault()
   const source = draggedKeyframe.value
-  if (!source || source.objectId !== objectId) return
+  if ( ! source || source.objectId !== objectId ) return
 
-  if (reorderKeyframe(objectId, source.index, index)) {
-    selectedKeyframes.value = [keyframeKey(objectId, index)]
+  if ( reorderKeyframe( objectId, source.index, index ) ) {
+    selectedKeyframes.value = [ keyframeKey( objectId, index ) ]
   }
 
   draggedKeyframe.value = null
@@ -140,37 +141,37 @@ function finishKeyframeDrag() {
   dragOverKey.value = null
 }
 
-function eventValue(event: Event) {
-  return (event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).value
+function eventValue( event: Event ) {
+  return ( event.target as HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement ).value
 }
 
-function parseNumber(value: string) {
+function parseNumber( value: string ) {
   const trimmed = value.trim()
-  if (trimmed === '') return undefined
-  const number = Number(trimmed)
-  return Number.isFinite(number) ? number : undefined
+  if ( trimmed === "" ) return undefined
+  const number = Number( trimmed )
+  return Number.isFinite( number ) ? number : undefined
 }
 
-function updateTick(objectId: string, index: number, value: string) {
-  const tick = parseNumber(value)
-  if (tick !== undefined) updateKeyframe(objectId, index, { tick })
+function updateTick( objectId: string, index: number, value: string ) {
+  const tick = parseNumber( value )
+  if ( tick !== undefined ) updateKeyframe( objectId, index, { tick } )
 }
 
-function updateTickMode(objectId: string, index: number, checked: boolean) {
-  updateKeyframe(objectId, index, { tick_mode: checked ? 'relative' : undefined })
+function updateTickMode( objectId: string, index: number, checked: boolean ) {
+  updateKeyframe( objectId, index, { tick_mode: checked ? "relative" : undefined } )
 }
 
-function updateEasing(objectId: string, index: number, value: string) {
-  updateKeyframe(objectId, index, { easing: value === '' ? undefined : value as EasingType })
+function updateEasing( objectId: string, index: number, value: string ) {
+  updateKeyframe( objectId, index, { easing: value === "" ? undefined : ( value as EasingType ) } )
 }
 
-function updateBlock(objectId: string, index: number, value: string) {
+function updateBlock( objectId: string, index: number, value: string ) {
   const trimmed = value.trim()
-  updateKeyframe(objectId, index, { block: trimmed === '' ? undefined : trimmed === 'null' ? null : trimmed })
+  updateKeyframe( objectId, index, { block: trimmed === "" ? undefined : trimmed === "null" ? null : trimmed } )
 }
 
-function updateMultiplier(objectId: string, index: number, value: string) {
-  updateKeyframe(objectId, index, { multiplier: parseNumber(value) })
+function updateMultiplier( objectId: string, index: number, value: string ) {
+  updateKeyframe( objectId, index, { multiplier: parseNumber( value ) } )
 }
 
 function setInputDraft(
@@ -178,80 +179,83 @@ function setInputDraft(
   index: number,
   field: string,
   value: string,
-  componentIndex: number | null = null,
+  componentIndex: number | null = null
 ) {
   inputDrafts.value = {
     ...inputDrafts.value,
-    [inputDraftKey(objectId, index, field, componentIndex)]: value,
+    [ inputDraftKey( objectId, index, field, componentIndex ) ]: value
   }
 }
 
-function fovInputValue(objectId: string, index: number, keyframe: CameraKeyframe) {
-  return inputDrafts.value[inputDraftKey(objectId, index, 'fov')] ?? String(keyframe.fov ?? '')
+function fovInputValue( objectId: string, index: number, keyframe: CameraKeyframe ) {
+  return inputDrafts.value[ inputDraftKey( objectId, index, "fov" ) ] ?? String( keyframe.fov ?? "" )
 }
 
-function commitFov(objectId: string, index: number, value: string) {
-  setInputDraft(objectId, index, 'fov', value)
+function commitFov( objectId: string, index: number, value: string ) {
+  setInputDraft( objectId, index, "fov", value )
 
   const trimmed = value.trim()
-  if (trimmed === '') {
-    updateKeyframe(objectId, index, { fov: undefined })
+  if ( trimmed === "" ) {
+    updateKeyframe( objectId, index, { fov: undefined } )
     return
   }
 
-  const fov = parseNumber(trimmed)
-  if (fov !== undefined && fov > 0) {
-    updateKeyframe(objectId, index, { fov })
+  const fov = parseNumber( trimmed )
+  if ( fov !== undefined && fov > 0 ) {
+    updateKeyframe( objectId, index, { fov } )
   }
 }
 
-function vectorComponent(value: Vec3 | CameraPosition | undefined, index: number) {
-  return value?.[index] ?? ''
+function vectorComponent( value: Vec3 | CameraPosition | undefined, index: number ) {
+  return value?.[ index ] ?? ""
 }
 
 function vectorInputValue(
   objectId: string,
   index: number,
-  field: 'pos' | 'look_at',
+  field: "pos" | "look_at",
   source: Vec3 | CameraPosition | undefined,
-  componentIndex: number,
+  componentIndex: number
 ) {
-  return inputDrafts.value[inputDraftKey(objectId, index, field, componentIndex)]
-    ?? String(vectorComponent(source, componentIndex))
+  return (
+    inputDrafts.value[ inputDraftKey( objectId, index, field, componentIndex ) ] ??
+    String( vectorComponent( source, componentIndex ) )
+  )
 }
 
 function vectorDraftValues(
   objectId: string,
   index: number,
-  field: 'pos' | 'look_at',
-  source: Vec3 | CameraPosition | undefined,
+  field: "pos" | "look_at",
+  source: Vec3 | CameraPosition | undefined
 ) {
-  return [0, 1, 2].map(componentIndex =>
-    inputDrafts.value[inputDraftKey(objectId, index, field, componentIndex)]
-      ?? String(vectorComponent(source, componentIndex)),
+  return [ 0, 1, 2 ].map(
+    ( componentIndex ) =>
+      inputDrafts.value[ inputDraftKey( objectId, index, field, componentIndex ) ] ??
+      String( vectorComponent( source, componentIndex ) )
   )
 }
 
 function updateNumberVector(
   objectId: string,
   index: number,
-  field: 'pos' | 'look_at',
+  field: "pos" | "look_at",
   source: Vec3 | undefined,
   componentIndex: number,
-  value: string,
+  value: string
 ) {
-  const next = vectorDraftValues(objectId, index, field, source)
-  next[componentIndex] = value.trim()
-  setInputDraft(objectId, index, field, value, componentIndex)
+  const next = vectorDraftValues( objectId, index, field, source )
+  next[ componentIndex ] = value.trim()
+  setInputDraft( objectId, index, field, value, componentIndex )
 
-  if (next.every(component => String(component).trim() === '')) {
-    updateKeyframe(objectId, index, { [field]: undefined })
+  if ( next.every( ( component ) => String( component ).trim() === "" ) ) {
+    updateKeyframe( objectId, index, { [ field ]: undefined } )
     return
   }
 
-  const parsed = next.map(component => parseNumber(String(component)))
-  if (parsed.every(component => component !== undefined)) {
-    updateKeyframe(objectId, index, { [field]: parsed as Vec3 })
+  const parsed = next.map( ( component ) => parseNumber( String( component ) ) )
+  if ( parsed.every( ( component ) => component !== undefined ) ) {
+    updateKeyframe( objectId, index, { [ field ]: parsed as Vec3 } )
   }
 }
 
@@ -260,54 +264,54 @@ function updateCameraPosition(
   index: number,
   source: CameraPosition | undefined,
   componentIndex: number,
-  value: string,
+  value: string
 ) {
-  const next = vectorDraftValues(objectId, index, 'pos', source)
-  next[componentIndex] = value.trim()
-  setInputDraft(objectId, index, 'pos', value, componentIndex)
+  const next = vectorDraftValues( objectId, index, "pos", source )
+  next[ componentIndex ] = value.trim()
+  setInputDraft( objectId, index, "pos", value, componentIndex )
 
-  if (next.every(component => String(component).trim() === '')) {
-    updateKeyframe(objectId, index, { pos: undefined })
+  if ( next.every( ( component ) => String( component ).trim() === "" ) ) {
+    updateKeyframe( objectId, index, { pos: undefined } )
     return
   }
 
-  const parsed = next.map(component => {
-    const text = String(component).trim()
-    if (text.startsWith('~')) return text
-    return parseNumber(text)
-  })
+  const parsed = next.map( ( component ) => {
+    const text = String( component ).trim()
+    if ( text.startsWith( "~" ) ) return text
+    return parseNumber( text )
+  } )
 
-  if (parsed.every(component => component !== undefined)) {
-    updateKeyframe(objectId, index, { pos: parsed as CameraPosition })
+  if ( parsed.every( ( component ) => component !== undefined ) ) {
+    updateKeyframe( objectId, index, { pos: parsed as CameraPosition } )
   }
 }
 
-function stateText(keyframe: BlockKeyframe) {
-  return keyframe.state ? JSON.stringify(keyframe.state, null, 2) : ''
+function stateText( keyframe: BlockKeyframe ) {
+  return keyframe.state ? JSON.stringify( keyframe.state, null, 2 ) : ""
 }
 
-function updateState(objectId: string, index: number, value: string) {
-  const errorKey = keyframeKey(objectId, index)
+function updateState( objectId: string, index: number, value: string ) {
+  const errorKey = keyframeKey( objectId, index )
   const trimmed = value.trim()
 
-  if (trimmed === '') {
-    const { [errorKey]: _removed, ...rest } = stateErrors.value
+  if ( trimmed === "" ) {
+    const { [ errorKey ]: _removed, ...rest } = stateErrors.value
     stateErrors.value = rest
-    updateKeyframe(objectId, index, { state: undefined })
+    updateKeyframe( objectId, index, { state: undefined } )
     return
   }
 
   try {
-    const parsed = JSON.parse(trimmed) as unknown
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      stateErrors.value = { ...stateErrors.value, [errorKey]: t('editor.stateJsonObjectError') }
+    const parsed = JSON.parse( trimmed ) as unknown
+    if ( ! parsed || typeof parsed !== "object" || Array.isArray( parsed ) ) {
+      stateErrors.value = { ...stateErrors.value, [ errorKey ]: t( "editor.stateJsonObjectError" ) }
       return
     }
-    const { [errorKey]: _removed, ...rest } = stateErrors.value
+    const { [ errorKey ]: _removed, ...rest } = stateErrors.value
     stateErrors.value = rest
-    updateKeyframe(objectId, index, { state: parsed as BlockState })
+    updateKeyframe( objectId, index, { state: parsed as BlockState } )
   } catch {
-    stateErrors.value = { ...stateErrors.value, [errorKey]: t('editor.stateJsonParseError') }
+    stateErrors.value = { ...stateErrors.value, [ errorKey ]: t( "editor.stateJsonParseError" ) }
   }
 }
 </script>

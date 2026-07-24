@@ -1,26 +1,42 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useAppState } from '../composables/useAppState'
-import { useI18n } from '../i18n'
+import { computed } from "vue"
+import { useAppState } from "../composables/useAppState"
+import { useI18n } from "../i18n"
 
 const { currentTick, totalTicks, totalFrames, ticksPerFrame, isPlaying, setTick, togglePlay, stopPlay } = useAppState()
 const { t } = useI18n()
 
-const currentFrame = computed(() => Math.min(totalFrames.value, Math.round(currentTick.value / ticksPerFrame.value)))
-const currentTickLabel = computed(() => Number.isInteger(currentTick.value)
-  ? String(currentTick.value)
-  : currentTick.value.toFixed(2),
+const currentFrame = computed( () =>
+  Math.min( totalFrames.value, Math.round( currentTick.value / ticksPerFrame.value ) )
 )
-const tickLabel = computed(() => `frame: ${currentFrame.value} / ${totalFrames.value} | tick: ${currentTickLabel.value} / ${totalTicks.value}`)
+const currentTickLabel = computed( () =>
+  Number.isInteger( currentTick.value ) ? String( currentTick.value ) : currentTick.value.toFixed( 2 )
+)
+const tickLabel = computed(
+  () =>
+    `frame: ${ currentFrame.value } / ${ totalFrames.value } | tick: ${ currentTickLabel.value } / ${ totalTicks.value }`
+)
 
-function onScrub(e: Event) {
-  setTick(+(e.target as HTMLInputElement).value)
+function onScrub( e: Event ) {
+  setTick( +( e.target as HTMLInputElement ).value )
 }
 
-function goStart() { stopPlay(); setTick(0) }
-function goEnd()   { stopPlay(); setTick(totalTicks.value) }
-function stepBack() { stopPlay(); setTick(currentTick.value - ticksPerFrame.value) }
-function stepFwd()  { stopPlay(); setTick(currentTick.value + ticksPerFrame.value) }
+function goStart() {
+  stopPlay()
+  setTick( 0 )
+}
+function goEnd() {
+  stopPlay()
+  setTick( totalTicks.value )
+}
+function stepBack() {
+  stopPlay()
+  setTick( currentTick.value - ticksPerFrame.value )
+}
+function stepFwd() {
+  stopPlay()
+  setTick( currentTick.value + ticksPerFrame.value )
+}
 </script>
 
 <template>

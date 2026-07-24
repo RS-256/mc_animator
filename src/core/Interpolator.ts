@@ -8,56 +8,50 @@ import type {
   ResolvedCameraState,
   BlockState,
   EasingType,
-  Vec3,
-} from '../types/schema'
-import { DEFAULT_CAMERA_ID } from '../types/schema'
+  Vec3
+} from "../types/schema"
+import { DEFAULT_CAMERA_ID } from "../types/schema"
 
 // ── イージング ────────────────────────────────────────────────────
 
-function applyEasing(t: number, easing: EasingType): number {
-  switch (easing) {
-    case 'easeInOutCubic':
-      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
-    case 'easeInOutQuart':
-      return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2
-    case 'easeInOutSine':
-      return -(Math.cos(Math.PI * t) - 1) / 2
-    case 'easeInOutExpo':
-      if (t === 0 || t === 1) return t
-      return t < 0.5
-        ? Math.pow(2, 20 * t - 10) / 2
-        : (2 - Math.pow(2, -20 * t + 10)) / 2
-    case 'linear':
+function applyEasing( t: number, easing: EasingType ): number {
+  switch ( easing ) {
+    case "easeInOutCubic":
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow( -2 * t + 2, 3 ) / 2
+    case "easeInOutQuart":
+      return t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow( -2 * t + 2, 4 ) / 2
+    case "easeInOutSine":
+      return -( Math.cos( Math.PI * t ) - 1 ) / 2
+    case "easeInOutExpo":
+      if ( t === 0 || t === 1 ) return t
+      return t < 0.5 ? Math.pow( 2, 20 * t - 10 ) / 2 : ( 2 - Math.pow( 2, -20 * t + 10 ) ) / 2
+    case "linear":
     default:
       return t
   }
 }
 
-function lerpNumber(a: number, b: number, t: number): number {
-  return a + (b - a) * t
+function lerpNumber( a: number, b: number, t: number ): number {
+  return a + ( b - a ) * t
 }
 
-function lerpVec3(
-  a: Vec3,
-  b: Vec3,
-  t: number,
-): Vec3 {
-  return [lerpNumber(a[0], b[0], t), lerpNumber(a[1], b[1], t), lerpNumber(a[2], b[2], t)]
+function lerpVec3( a: Vec3, b: Vec3, t: number ): Vec3 {
+  return [ lerpNumber( a[ 0 ], b[ 0 ], t ), lerpNumber( a[ 1 ], b[ 1 ], t ), lerpNumber( a[ 2 ], b[ 2 ], t ) ]
 }
 
-function addVec3(a: Vec3, b: Vec3): Vec3 {
-  return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+function addVec3( a: Vec3, b: Vec3 ): Vec3 {
+  return [ a[ 0 ] + b[ 0 ], a[ 1 ] + b[ 1 ], a[ 2 ] + b[ 2 ] ]
 }
 
-function subVec3(a: Vec3, b: Vec3): Vec3 {
-  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+function subVec3( a: Vec3, b: Vec3 ): Vec3 {
+  return [ a[ 0 ] - b[ 0 ], a[ 1 ] - b[ 1 ], a[ 2 ] - b[ 2 ] ]
 }
 
-function scaleVec3(v: Vec3, scale: number): Vec3 {
-  return [v[0] * scale, v[1] * scale, v[2] * scale]
+function scaleVec3( v: Vec3, scale: number ): Vec3 {
+  return [ v[ 0 ] * scale, v[ 1 ] * scale, v[ 2 ] * scale ]
 }
 
-function cubicBezierVec3(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: number): Vec3 {
+function cubicBezierVec3( p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: number ): Vec3 {
   const u = 1 - t
   const a = u * u * u
   const b = 3 * u * u * t
@@ -65,77 +59,74 @@ function cubicBezierVec3(p0: Vec3, p1: Vec3, p2: Vec3, p3: Vec3, t: number): Vec
   const d = t * t * t
 
   return [
-    a * p0[0] + b * p1[0] + c * p2[0] + d * p3[0],
-    a * p0[1] + b * p1[1] + c * p2[1] + d * p3[1],
-    a * p0[2] + b * p1[2] + c * p2[2] + d * p3[2],
+    a * p0[ 0 ] + b * p1[ 0 ] + c * p2[ 0 ] + d * p3[ 0 ],
+    a * p0[ 1 ] + b * p1[ 1 ] + c * p2[ 1 ] + d * p3[ 1 ],
+    a * p0[ 2 ] + b * p1[ 2 ] + c * p2[ 2 ] + d * p3[ 2 ]
   ]
 }
 
 // ── tick_mode の解決（relative → absolute に変換） ─────────────────
 
-function resolveAbsoluteTicks<T extends { tick: number; tick_mode?: string }>(
-  keyframes: T[],
-): (T & { _absoluteTick: number })[] {
+function resolveAbsoluteTicks< T extends { tick: number; tick_mode?: string } >(
+  keyframes: T[]
+): ( T & { _absoluteTick: number } )[] {
   let lastAbsolute = 0
-  return keyframes.map(kf => {
-    const abs =
-      kf.tick_mode === 'relative' ? lastAbsolute + kf.tick : kf.tick
+  return keyframes.map( ( kf ) => {
+    const abs = kf.tick_mode === "relative" ? lastAbsolute + kf.tick : kf.tick
     lastAbsolute = abs
     return { ...kf, _absoluteTick: abs }
-  })
+  } )
 }
 
 // ── ブロック補間 ──────────────────────────────────────────────────
 
-export function resolveBlock(
-  obj: BlockObject,
-  tick: number,
-): ResolvedBlockState | null {
-  const kfs = resolveAbsoluteTicks(obj.keyframes as BlockKeyframe[])
-    .sort((a, b) => a._absoluteTick - b._absoluteTick)
+export function resolveBlock( obj: BlockObject, tick: number ): ResolvedBlockState | null {
+  const kfs = resolveAbsoluteTicks( obj.keyframes as BlockKeyframe[] ).sort(
+    ( a, b ) => a._absoluteTick - b._absoluteTick
+  )
 
-  if (kfs.length === 0 || tick < kfs[0]._absoluteTick) return null
+  if ( kfs.length === 0 || tick < kfs[ 0 ]._absoluteTick ) return null
 
   // 現在 tick より前または同じ最後のキーフレームを見つける
   let prevIdx = 0
-  for (let i = 0; i < kfs.length; i++) {
-    if (kfs[i]._absoluteTick <= tick) prevIdx = i
+  for ( let i = 0; i < kfs.length; i++ ) {
+    if ( kfs[ i ]._absoluteTick <= tick ) prevIdx = i
     else break
   }
 
   // 状態を先頭から prevIdx まで積み上げて解決
   let block: string | null = null
   let state: BlockState = {}
-  let pos: Vec3 = [0, 0, 0]
+  let pos: Vec3 = [ 0, 0, 0 ]
   let multiplier = 1
 
-  for (let i = 0; i <= prevIdx; i++) {
-    const kf = kfs[i]
-    if (kf.block !== undefined) block = kf.block
-    if (kf.state !== undefined) state = { ...state, ...kf.state }
-    if (kf.pos !== undefined) pos = kf.pos
-    if (kf.multiplier !== undefined) multiplier = kf.multiplier
+  for ( let i = 0; i <= prevIdx; i++ ) {
+    const kf = kfs[ i ]
+    if ( kf.block !== undefined ) block = kf.block
+    if ( kf.state !== undefined ) state = { ...state, ...kf.state }
+    if ( kf.pos !== undefined ) pos = kf.pos
+    if ( kf.multiplier !== undefined ) multiplier = kf.multiplier
   }
 
-  if (block === null) return null // 削除済み
+  if ( block === null ) return null // 削除済み
 
   // pos の補間（次のキーフレームがあれば）
   const nextIdx = prevIdx + 1
-  if (nextIdx < kfs.length) {
-    const prev = kfs[prevIdx]
-    const next = kfs[nextIdx]
-    const prevPos = resolveFieldAt<Vec3>(kfs, prevIdx, 'pos', [0, 0, 0])
-    const nextPos = resolveFieldAt<Vec3>(kfs, nextIdx, 'pos', prevPos)
-    const prevMultiplier = resolveFieldAt<number>(kfs, prevIdx, 'multiplier', 1)
-    const nextMultiplier = resolveFieldAt<number>(kfs, nextIdx, 'multiplier', prevMultiplier)
+  if ( nextIdx < kfs.length ) {
+    const prev = kfs[ prevIdx ]
+    const next = kfs[ nextIdx ]
+    const prevPos = resolveFieldAt< Vec3 >( kfs, prevIdx, "pos", [ 0, 0, 0 ] )
+    const nextPos = resolveFieldAt< Vec3 >( kfs, nextIdx, "pos", prevPos )
+    const prevMultiplier = resolveFieldAt< number >( kfs, prevIdx, "multiplier", 1 )
+    const nextMultiplier = resolveFieldAt< number >( kfs, nextIdx, "multiplier", prevMultiplier )
 
     const duration = next._absoluteTick - prev._absoluteTick
-    if (duration > 0) {
-      const rawT = (tick - prev._absoluteTick) / duration
-      const easing = next.easing ?? 'linear'
-      const t = applyEasing(rawT, easing)
-      pos = lerpVec3(prevPos, nextPos, t)
-      multiplier = lerpNumber(prevMultiplier, nextMultiplier, t)
+    if ( duration > 0 ) {
+      const rawT = ( tick - prev._absoluteTick ) / duration
+      const easing = next.easing ?? "linear"
+      const t = applyEasing( rawT, easing )
+      pos = lerpVec3( prevPos, nextPos, t )
+      multiplier = lerpNumber( prevMultiplier, nextMultiplier, t )
     }
   }
 
@@ -143,15 +134,15 @@ export function resolveBlock(
 }
 
 // キーフレーム配列からフィールドを遡って解決するヘルパー
-function resolveFieldAt<T>(
-  kfs: (BlockKeyframe & { _absoluteTick: number })[],
+function resolveFieldAt< T >(
+  kfs: ( BlockKeyframe & { _absoluteTick: number } )[],
   upToIdx: number,
   field: keyof BlockKeyframe,
-  defaultVal: T,
+  defaultVal: T
 ): T {
-  for (let i = upToIdx; i >= 0; i--) {
-    const val = (kfs[i] as unknown as Record<string, unknown>)[field as string]
-    if (val !== undefined) return val as T
+  for ( let i = upToIdx; i >= 0; i-- ) {
+    const val = ( kfs[ i ] as unknown as Record< string, unknown > )[ field as string ]
+    if ( val !== undefined ) return val as T
   }
   return defaultVal
 }
@@ -159,67 +150,63 @@ function resolveFieldAt<T>(
 // ── カメラ補間 ────────────────────────────────────────────────────
 
 const DEFAULT_CAM: ResolvedCameraState = {
-  pos: [10, 10, 10],
-  look_at: [0, 0, 0],
-  fov: 70,
+  pos: [ 10, 10, 10 ],
+  look_at: [ 0, 0, 0 ],
+  fov: 70
 }
 
-type AbsoluteCameraKeyframe = Omit<CameraKeyframe, 'pos'> & {
+type AbsoluteCameraKeyframe = Omit< CameraKeyframe, "pos" > & {
   _absoluteTick: number
   pos?: Vec3
 }
 
-function isRelativeCameraPosComponent(value: unknown): value is string {
-  return typeof value === 'string' && value.startsWith('~')
+function isRelativeCameraPosComponent( value: unknown ): value is string {
+  return typeof value === "string" && value.startsWith( "~" )
 }
 
-function parseRelativeCameraPosComponent(value: string): number | null {
-  const rawOffset = value.slice(1).trim()
-  if (rawOffset === '') return 0
+function parseRelativeCameraPosComponent( value: string ): number | null {
+  const rawOffset = value.slice( 1 ).trim()
+  if ( rawOffset === "" ) return 0
 
-  const offset = Number(rawOffset)
-  return Number.isFinite(offset) ? offset : null
+  const offset = Number( rawOffset )
+  return Number.isFinite( offset ) ? offset : null
 }
 
-function resolveCameraPos(pos: CameraKeyframe['pos'], previousPos?: Vec3): Vec3 | undefined {
-  if (pos === undefined) return undefined
+function resolveCameraPos( pos: CameraKeyframe[ "pos" ], previousPos?: Vec3 ): Vec3 | undefined {
+  if ( pos === undefined ) return undefined
 
-  const hasRelativeComponent = pos.some(isRelativeCameraPosComponent)
-  if (!hasRelativeComponent) {
-    return pos.every(value => typeof value === 'number' && Number.isFinite(value))
-      ? pos as Vec3
-      : undefined
+  const hasRelativeComponent = pos.some( isRelativeCameraPosComponent )
+  if ( ! hasRelativeComponent ) {
+    return pos.every( ( value ) => typeof value === "number" && Number.isFinite( value ) ) ? ( pos as Vec3 ) : undefined
   }
 
-  if (!previousPos) return undefined
+  if ( ! previousPos ) return undefined
 
-  const resolved = pos.map((value, index) => {
-    if (typeof value === 'number' && Number.isFinite(value)) return value
-    if (!isRelativeCameraPosComponent(value)) return undefined
+  const resolved = pos.map( ( value, index ) => {
+    if ( typeof value === "number" && Number.isFinite( value ) ) return value
+    if ( ! isRelativeCameraPosComponent( value ) ) return undefined
 
-    const offset = parseRelativeCameraPosComponent(value)
-    return offset === null ? undefined : previousPos[index] + offset
-  })
+    const offset = parseRelativeCameraPosComponent( value )
+    return offset === null ? undefined : previousPos[ index ] + offset
+  } )
 
-  return resolved.every(value => typeof value === 'number')
-    ? resolved as Vec3
-    : undefined
+  return resolved.every( ( value ) => typeof value === "number" ) ? ( resolved as Vec3 ) : undefined
 }
 
 function resolveRelativeCameraPositions(
-  keyframes: (CameraKeyframe & { _absoluteTick: number })[],
+  keyframes: ( CameraKeyframe & { _absoluteTick: number } )[]
 ): AbsoluteCameraKeyframe[] {
   let previousPos: Vec3 | undefined
 
-  return keyframes.map(kf => {
-    const resolvedPos = resolveCameraPos(kf.pos, previousPos)
-    if (resolvedPos) previousPos = resolvedPos
+  return keyframes.map( ( kf ) => {
+    const resolvedPos = resolveCameraPos( kf.pos, previousPos )
+    if ( resolvedPos ) previousPos = resolvedPos
     return { ...kf, pos: resolvedPos }
-  })
+  } )
 }
 
-function hasBezierSegmentTo(kfs: AbsoluteCameraKeyframe[], index: number): boolean {
-  return index > 0 && kfs[index].path === 'bezier'
+function hasBezierSegmentTo( kfs: AbsoluteCameraKeyframe[], index: number ): boolean {
+  return index > 0 && kfs[ index ].path === "bezier"
 }
 
 function resolveCameraBezierPathPos(
@@ -228,94 +215,88 @@ function resolveCameraBezierPathPos(
   nextIdx: number,
   prevPos: Vec3,
   nextPos: Vec3,
-  t: number,
+  t: number
 ): Vec3 {
-  const hasPreviousBezierSegment = hasBezierSegmentTo(kfs, prevIdx)
-  const hasNextBezierSegment = hasBezierSegmentTo(kfs, nextIdx + 1)
+  const hasPreviousBezierSegment = hasBezierSegmentTo( kfs, prevIdx )
+  const hasNextBezierSegment = hasBezierSegmentTo( kfs, nextIdx + 1 )
 
-  const prevPrevPos = hasPreviousBezierSegment
-    ? resolveCamField<Vec3>(kfs, prevIdx - 1, 'pos', prevPos)
-    : prevPos
-  const nextNextPos = hasNextBezierSegment
-    ? resolveCamField<Vec3>(kfs, nextIdx + 1, 'pos', nextPos)
-    : nextPos
+  const prevPrevPos = hasPreviousBezierSegment ? resolveCamField< Vec3 >( kfs, prevIdx - 1, "pos", prevPos ) : prevPos
+  const nextNextPos = hasNextBezierSegment ? resolveCamField< Vec3 >( kfs, nextIdx + 1, "pos", nextPos ) : nextPos
 
   const control1 = hasPreviousBezierSegment
-    ? addVec3(prevPos, scaleVec3(subVec3(nextPos, prevPrevPos), 1 / 6))
-    : addVec3(prevPos, scaleVec3(subVec3(nextPos, prevPos), 1 / 3))
+    ? addVec3( prevPos, scaleVec3( subVec3( nextPos, prevPrevPos ), 1 / 6 ) )
+    : addVec3( prevPos, scaleVec3( subVec3( nextPos, prevPos ), 1 / 3 ) )
   const control2 = hasNextBezierSegment
-    ? subVec3(nextPos, scaleVec3(subVec3(nextNextPos, prevPos), 1 / 6))
-    : subVec3(nextPos, scaleVec3(subVec3(nextPos, prevPos), 1 / 3))
+    ? subVec3( nextPos, scaleVec3( subVec3( nextNextPos, prevPos ), 1 / 6 ) )
+    : subVec3( nextPos, scaleVec3( subVec3( nextPos, prevPos ), 1 / 3 ) )
 
-  return cubicBezierVec3(prevPos, control1, control2, nextPos, t)
+  return cubicBezierVec3( prevPos, control1, control2, nextPos, t )
 }
 
-export function resolveCamera(
-  obj: CameraObject,
-  tick: number,
-): ResolvedCameraState {
-  const kfs = resolveRelativeCameraPositions(resolveAbsoluteTicks(obj.keyframes as CameraKeyframe[])
-    .sort((a, b) => a._absoluteTick - b._absoluteTick)
+export function resolveCamera( obj: CameraObject, tick: number ): ResolvedCameraState {
+  const kfs = resolveRelativeCameraPositions(
+    resolveAbsoluteTicks( obj.keyframes as CameraKeyframe[] ).sort( ( a, b ) => a._absoluteTick - b._absoluteTick )
   )
 
-  if (kfs.length === 0) return DEFAULT_CAM
+  if ( kfs.length === 0 ) return DEFAULT_CAM
 
   // 最初のキーフレームより前は最初の値を使う
-  if (tick <= kfs[0]._absoluteTick) {
+  if ( tick <= kfs[ 0 ]._absoluteTick ) {
     return {
-      pos: kfs[0].pos ?? DEFAULT_CAM.pos,
-      look_at: kfs[0].look_at ?? DEFAULT_CAM.look_at,
-      fov: kfs[0].fov ?? DEFAULT_CAM.fov,
+      pos: kfs[ 0 ].pos ?? DEFAULT_CAM.pos,
+      look_at: kfs[ 0 ].look_at ?? DEFAULT_CAM.look_at,
+      fov: kfs[ 0 ].fov ?? DEFAULT_CAM.fov
     }
   }
 
   // 最後のキーフレームより後は最後の値を使う
-  const last = kfs[kfs.length - 1]
-  if (tick >= last._absoluteTick) {
-    const pos = resolveCamField<Vec3>(kfs, kfs.length - 1, 'pos', DEFAULT_CAM.pos)
-    const look_at = resolveCamField<Vec3>(kfs, kfs.length - 1, 'look_at', DEFAULT_CAM.look_at)
-    const fov = resolveCamField<number>(kfs, kfs.length - 1, 'fov', DEFAULT_CAM.fov)
+  const last = kfs[ kfs.length - 1 ]
+  if ( tick >= last._absoluteTick ) {
+    const pos = resolveCamField< Vec3 >( kfs, kfs.length - 1, "pos", DEFAULT_CAM.pos )
+    const look_at = resolveCamField< Vec3 >( kfs, kfs.length - 1, "look_at", DEFAULT_CAM.look_at )
+    const fov = resolveCamField< number >( kfs, kfs.length - 1, "fov", DEFAULT_CAM.fov )
     return { pos, look_at, fov }
   }
 
   // 補間
   let prevIdx = 0
-  for (let i = 0; i < kfs.length - 1; i++) {
-    if (kfs[i]._absoluteTick <= tick) prevIdx = i
+  for ( let i = 0; i < kfs.length - 1; i++ ) {
+    if ( kfs[ i ]._absoluteTick <= tick ) prevIdx = i
   }
   const nextIdx = prevIdx + 1
-  const prev = kfs[prevIdx]
-  const next = kfs[nextIdx]
+  const prev = kfs[ prevIdx ]
+  const next = kfs[ nextIdx ]
   const duration = next._absoluteTick - prev._absoluteTick
-  const easing = next.easing ?? 'linear'
-  const rawT = duration > 0 ? (tick - prev._absoluteTick) / duration : 1
-  const t = applyEasing(rawT, easing)
+  const easing = next.easing ?? "linear"
+  const rawT = duration > 0 ? ( tick - prev._absoluteTick ) / duration : 1
+  const t = applyEasing( rawT, easing )
 
-  const prevPos = resolveCamField<Vec3>(kfs, prevIdx, 'pos', DEFAULT_CAM.pos)
-  const nextPos = resolveCamField<Vec3>(kfs, nextIdx, 'pos', prevPos)
-  const prevLookAt = resolveCamField<Vec3>(kfs, prevIdx, 'look_at', DEFAULT_CAM.look_at)
-  const nextLookAt = resolveCamField<Vec3>(kfs, nextIdx, 'look_at', prevLookAt)
-  const prevFov = resolveCamField<number>(kfs, prevIdx, 'fov', DEFAULT_CAM.fov)
-  const nextFov = resolveCamField<number>(kfs, nextIdx, 'fov', prevFov)
+  const prevPos = resolveCamField< Vec3 >( kfs, prevIdx, "pos", DEFAULT_CAM.pos )
+  const nextPos = resolveCamField< Vec3 >( kfs, nextIdx, "pos", prevPos )
+  const prevLookAt = resolveCamField< Vec3 >( kfs, prevIdx, "look_at", DEFAULT_CAM.look_at )
+  const nextLookAt = resolveCamField< Vec3 >( kfs, nextIdx, "look_at", prevLookAt )
+  const prevFov = resolveCamField< number >( kfs, prevIdx, "fov", DEFAULT_CAM.fov )
+  const nextFov = resolveCamField< number >( kfs, nextIdx, "fov", prevFov )
 
   return {
-    pos: next.path === 'bezier'
-      ? resolveCameraBezierPathPos(kfs, prevIdx, nextIdx, prevPos, nextPos, t)
-      : lerpVec3(prevPos, nextPos, t),
-    look_at: lerpVec3(prevLookAt, nextLookAt, t),
-    fov: lerpNumber(prevFov, nextFov, t),
+    pos:
+      next.path === "bezier"
+        ? resolveCameraBezierPathPos( kfs, prevIdx, nextIdx, prevPos, nextPos, t )
+        : lerpVec3( prevPos, nextPos, t ),
+    look_at: lerpVec3( prevLookAt, nextLookAt, t ),
+    fov: lerpNumber( prevFov, nextFov, t )
   }
 }
 
-function resolveCamField<T>(
+function resolveCamField< T >(
   kfs: AbsoluteCameraKeyframe[],
   upToIdx: number,
   field: keyof CameraKeyframe,
-  defaultVal: T,
+  defaultVal: T
 ): T {
-  for (let i = upToIdx; i >= 0; i--) {
-    const val = (kfs[i] as unknown as Record<string, unknown>)[field as string]
-    if (val !== undefined) return val as T
+  for ( let i = upToIdx; i >= 0; i-- ) {
+    const val = ( kfs[ i ] as unknown as Record< string, unknown > )[ field as string ]
+    if ( val !== undefined ) return val as T
   }
   return defaultVal
 }
@@ -323,28 +304,28 @@ function resolveCamField<T>(
 // ── シーン全体の解決 ──────────────────────────────────────────────
 
 export interface ResolvedScene {
-  blocks: Map<string, ResolvedBlockState>
+  blocks: Map< string, ResolvedBlockState >
   camera: ResolvedCameraState
 }
 
-export function resolveScene(schema: AnimationSchema, tick: number): ResolvedScene {
-  const blocks = new Map<string, ResolvedBlockState>()
+export function resolveScene( schema: AnimationSchema, tick: number ): ResolvedScene {
+  const blocks = new Map< string, ResolvedBlockState >()
 
   // アクティブカメラの決定
   const activeCamId = schema.metadata.active_camera ?? DEFAULT_CAMERA_ID
   let activeCamObj: CameraObject | undefined
 
-  for (const obj of schema.objects) {
-    if (obj.type === 'block') {
-      const resolved = resolveBlock(obj, tick)
-      if (resolved) blocks.set(obj.id, resolved)
-    } else if (obj.type === 'camera') {
-      if (obj.id === activeCamId) activeCamObj = obj
+  for ( const obj of schema.objects ) {
+    if ( obj.type === "block" ) {
+      const resolved = resolveBlock( obj, tick )
+      if ( resolved ) blocks.set( obj.id, resolved )
+    } else if ( obj.type === "camera" ) {
+      if ( obj.id === activeCamId ) activeCamObj = obj
       // active_camera 未指定 & __camera__ もない場合は最初のカメラ
-      if (!activeCamObj && !schema.metadata.active_camera) activeCamObj = obj
+      if ( ! activeCamObj && ! schema.metadata.active_camera ) activeCamObj = obj
     }
   }
 
-  const camera = activeCamObj ? resolveCamera(activeCamObj, tick) : DEFAULT_CAM
+  const camera = activeCamObj ? resolveCamera( activeCamObj, tick ) : DEFAULT_CAM
   return { blocks, camera }
 }

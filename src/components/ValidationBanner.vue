@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useAppState } from '../composables/useAppState'
-import { useI18n } from '../i18n'
+import { computed } from "vue"
+import { useAppState } from "../composables/useAppState"
+import { useI18n } from "../i18n"
 
 const { validation, dismissValidation } = useAppState()
 const { t } = useI18n()
 
-const messages = computed(() => validation.value?.messages ?? [])
-const hasErrors = computed(() => messages.value.some(msg => msg.severity === 'error'))
+const messages = computed( () => validation.value?.messages ?? [] )
+const hasErrors = computed( () => messages.value.some( ( msg ) => msg.severity === "error" ) )
 </script>
 
 <template>

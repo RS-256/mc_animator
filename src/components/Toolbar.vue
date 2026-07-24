@@ -1,46 +1,39 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useAppState } from '../composables/useAppState'
-import { useI18n, type LanguageKey } from '../i18n'
+import { ref } from "vue"
+import { useAppState } from "../composables/useAppState"
+import { useI18n, type LanguageKey } from "../i18n"
 
-const {
-  schema,
-  sourceJsonFileName,
-  isSchemaDirty,
-  loadJson,
-  createNewJson,
-  markSchemaSaved,
-  loadResourcePack,
-} = useAppState()
+const { schema, sourceJsonFileName, isSchemaDirty, loadJson, createNewJson, markSchemaSaved, loadResourcePack } =
+  useAppState()
 const { language, languageOptions, t } = useI18n()
-const isFileMenuOpen = ref(false)
-const isNewConfirmOpen = ref(false)
+const isFileMenuOpen = ref( false )
+const isNewConfirmOpen = ref( false )
 
-function onJsonInput(e: Event) {
+function onJsonInput( e: Event ) {
   const input = e.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (file) loadJson(file)
+  const file = input.files?.[ 0 ]
+  if ( file ) loadJson( file )
   isFileMenuOpen.value = false
-  input.value = ''
+  input.value = ""
 }
 
-function onZipInput(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (file) loadResourcePack(file)
+function onZipInput( e: Event ) {
+  const file = ( e.target as HTMLInputElement ).files?.[ 0 ]
+  if ( file ) loadResourcePack( file )
 }
 
-function onZipDrop(e: DragEvent) {
+function onZipDrop( e: DragEvent ) {
   e.preventDefault()
-  const file = e.dataTransfer?.files[0]
-  if (file && file.name.endsWith('.zip')) loadResourcePack(file)
+  const file = e.dataTransfer?.files[ 0 ]
+  if ( file && file.name.endsWith( ".zip" ) ) loadResourcePack( file )
 }
 
-function onLanguageChange(e: Event) {
-  language.value = (e.target as HTMLSelectElement).value as LanguageKey
+function onLanguageChange( e: Event ) {
+  language.value = ( e.target as HTMLSelectElement ).value as LanguageKey
 }
 
 function handleCreateNewJson() {
-  if (isSchemaDirty.value) {
+  if ( isSchemaDirty.value ) {
     isFileMenuOpen.value = false
     isNewConfirmOpen.value = true
     return
@@ -61,16 +54,16 @@ function cancelCreateNewJson() {
 }
 
 function downloadJson() {
-  if (!schema.value) return
+  if ( ! schema.value ) return
 
-  const json = JSON.stringify(schema.value, null, 2)
-  const blob = new Blob([json], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
+  const json = JSON.stringify( schema.value, null, 2 )
+  const blob = new Blob( [ json ], { type: "application/json" } )
+  const url = URL.createObjectURL( blob )
+  const link = document.createElement( "a" )
   link.href = url
-  link.download = sourceJsonFileName.value ?? 'animation.json'
+  link.download = sourceJsonFileName.value ?? "animation.json"
   link.click()
-  URL.revokeObjectURL(url)
+  URL.revokeObjectURL( url )
   markSchemaSaved()
   isFileMenuOpen.value = false
 }

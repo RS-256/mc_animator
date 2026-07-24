@@ -1,62 +1,62 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useAppState } from '../composables/useAppState'
-import type { GizmoSettings } from '../types/schema'
-import { useI18n } from '../i18n'
+import { computed, ref } from "vue"
+import { useAppState } from "../composables/useAppState"
+import type { GizmoSettings } from "../types/schema"
+import { useI18n } from "../i18n"
 
 const { schema, totalFrames, updateMetadata } = useAppState()
 const { t } = useI18n()
-const isOpen = ref(true)
+const isOpen = ref( true )
 
-const meta = computed(() => schema.value?.metadata)
+const meta = computed( () => schema.value?.metadata )
 
 // background_color を分解
-const bgARGB = computed({
-  get: () => meta.value?.background_color ?? '#00000000',
-  set: (v) => updateMetadata('background_color', v),
-})
+const bgARGB = computed( {
+  get: () => meta.value?.background_color ?? "#00000000",
+  set: ( v ) => updateMetadata( "background_color", v )
+} )
 
-const bgHex = computed(() => '#' + bgARGB.value.slice(3)) // #RRGGBB
-const bgAlpha = computed(() => parseInt(bgARGB.value.slice(1, 3), 16))
+const bgHex = computed( () => "#" + bgARGB.value.slice( 3 ) ) // #RRGGBB
+const bgAlpha = computed( () => parseInt( bgARGB.value.slice( 1, 3 ), 16 ) )
 
-function onColorChange(e: Event) {
-  const hex = (e.target as HTMLInputElement).value // #RRGGBB
-  const aa = String(bgAlpha.value.toString(16).padStart(2, '0')).toUpperCase()
-  bgARGB.value = `#${aa}${hex.slice(1).toUpperCase()}`
+function onColorChange( e: Event ) {
+  const hex = ( e.target as HTMLInputElement ).value // #RRGGBB
+  const aa = String( bgAlpha.value.toString( 16 ).padStart( 2, "0" ) ).toUpperCase()
+  bgARGB.value = `#${ aa }${ hex.slice( 1 ).toUpperCase() }`
 }
 
-function onAlphaChange(e: Event) {
-  const alpha = parseInt((e.target as HTMLInputElement).value)
-  const aa = alpha.toString(16).padStart(2, '0').toUpperCase()
-  const rrggbb = bgARGB.value.slice(3)
-  bgARGB.value = `#${aa}${rrggbb}`
+function onAlphaChange( e: Event ) {
+  const alpha = parseInt( ( e.target as HTMLInputElement ).value )
+  const aa = alpha.toString( 16 ).padStart( 2, "0" ).toUpperCase()
+  const rrggbb = bgARGB.value.slice( 3 )
+  bgARGB.value = `#${ aa }${ rrggbb }`
 }
 
 function defaultGizmo(): GizmoSettings {
   return {
     visible: false,
-    origin: [64, 64],
+    origin: [ 64, 64 ]
   }
 }
 
-function updateGizmo(value: Partial<GizmoSettings>) {
+function updateGizmo( value: Partial< GizmoSettings > ) {
   const current = meta.value?.gizmo ?? defaultGizmo()
-  updateMetadata('gizmo', {
+  updateMetadata( "gizmo", {
     ...current,
     ...value,
-    origin: value.origin ?? [...current.origin],
-  })
+    origin: value.origin ?? [ ...current.origin ]
+  } )
 }
 
-function onGizmoVisibleChange(e: Event) {
-  updateGizmo({ visible: (e.target as HTMLInputElement).checked })
+function onGizmoVisibleChange( e: Event ) {
+  updateGizmo( { visible: ( e.target as HTMLInputElement ).checked } )
 }
 
-function onGizmoOriginChange(index: 0 | 1, e: Event) {
+function onGizmoOriginChange( index: 0 | 1, e: Event ) {
   const current = meta.value?.gizmo ?? defaultGizmo()
-  const origin: [number, number] = [...current.origin]
-  origin[index] = +(e.target as HTMLInputElement).value
-  updateGizmo({ origin })
+  const origin: [ number, number ] = [ ...current.origin ]
+  origin[ index ] = +( e.target as HTMLInputElement ).value
+  updateGizmo( { origin } )
 }
 </script>
 

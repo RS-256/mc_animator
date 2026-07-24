@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useAppState } from '../composables/useAppState'
-import { exportAnimation, type ExportFormat, type ExportMode } from '../core/Exporter'
-import { SceneRenderer } from '../core/Renderer'
-import { useI18n } from '../i18n'
+import { computed, ref } from "vue"
+import { useAppState } from "../composables/useAppState"
+import { exportAnimation, type ExportFormat, type ExportMode } from "../core/Exporter"
+import { SceneRenderer } from "../core/Renderer"
+import { useI18n } from "../i18n"
 
 const {
   schema,
@@ -11,56 +11,56 @@ const {
   totalFrames,
   sourceJsonFileName,
   _isExporting: isExporting,
-  _exportProgress: exportProgress,
+  _exportProgress: exportProgress
 } = useAppState()
 const { t } = useI18n()
 
-const format = ref<ExportFormat>('png_zip')
-const exportMode = ref<ExportMode>('direct')
-const isExportMenuOpen = ref(false)
-const exportError = ref<string | null>(null)
+const format = ref< ExportFormat >( "png_zip" )
+const exportMode = ref< ExportMode >( "direct" )
+const isExportMenuOpen = ref( false )
+const exportError = ref< string | null >( null )
 let cancelFlag = false
 
-const isVideoFormat = computed(() => format.value !== 'png_zip')
-const selectedModeLabel = computed(() => {
-  if (!isVideoFormat.value) return t('export.mode.pngZip')
-  return exportMode.value === 'direct' ? t('export.mode.direct') : t('export.mode.local')
-})
+const isVideoFormat = computed( () => format.value !== "png_zip" )
+const selectedModeLabel = computed( () => {
+  if ( ! isVideoFormat.value ) return t( "export.mode.pngZip" )
+  return exportMode.value === "direct" ? t( "export.mode.direct" ) : t( "export.mode.local" )
+} )
 
-async function startExport(mode: ExportMode = exportMode.value) {
-  if (!schema.value) return
+async function startExport( mode: ExportMode = exportMode.value ) {
+  if ( ! schema.value ) return
   isExportMenuOpen.value = false
   exportError.value = null
 
   // オフスクリーン用レンダラーを別途生成
-  const offscreen = document.createElement('canvas')
-  const [w, h] = schema.value.metadata.resolution
+  const offscreen = document.createElement( "canvas" )
+  const [ w, h ] = schema.value.metadata.resolution
   offscreen.width = w
   offscreen.height = h
 
   let renderer: SceneRenderer | null = null
 
   try {
-    renderer = new SceneRenderer(offscreen, { pixelRatio: 1 })
-    renderer.setSize(w, h)
-    await renderer.loadSchema(schema.value, zipLoader)
+    renderer = new SceneRenderer( offscreen, { pixelRatio: 1 } )
+    renderer.setSize( w, h )
+    await renderer.loadSchema( schema.value, zipLoader )
 
     isExporting.value = true
     cancelFlag = false
     exportProgress.value = { current: 0, total: totalFrames.value }
 
-    await exportAnimation(schema.value, renderer, {
+    await exportAnimation( schema.value, renderer, {
       format: format.value,
-      mode: isVideoFormat.value ? mode : 'direct',
+      mode: isVideoFormat.value ? mode : "direct",
       sourceFileName: sourceJsonFileName.value ?? undefined,
-      onProgress: (current, total) => {
+      onProgress: ( current, total ) => {
         exportProgress.value = { current, total }
       },
-      onCancel: () => cancelFlag,
-    })
-  } catch (error) {
-    console.error(error)
-    exportError.value = error instanceof Error ? error.message : t('export.failed')
+      onCancel: () => cancelFlag
+    } )
+  } catch ( error ) {
+    console.error( error )
+    exportError.value = error instanceof Error ? error.message : t( "export.failed" )
   } finally {
     renderer?.dispose()
     isExporting.value = false
@@ -71,14 +71,14 @@ function cancelExport() {
   cancelFlag = true
 }
 
-function setExportMode(mode: ExportMode) {
+function setExportMode( mode: ExportMode ) {
   exportMode.value = mode
   isExportMenuOpen.value = false
 }
 
 function toggleExportMenu() {
-  if (!isVideoFormat.value) return
-  isExportMenuOpen.value = !isExportMenuOpen.value
+  if ( ! isVideoFormat.value ) return
+  isExportMenuOpen.value = ! isExportMenuOpen.value
 }
 
 function closeExportError() {
@@ -86,9 +86,7 @@ function closeExportError() {
 }
 
 const progressPct = () =>
-  exportProgress.value.total > 0
-    ? Math.round((exportProgress.value.current / exportProgress.value.total) * 100)
-    : 0
+  exportProgress.value.total > 0 ? Math.round( ( exportProgress.value.current / exportProgress.value.total ) * 100 ) : 0
 </script>
 
 <template>

@@ -1,66 +1,60 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import Toolbar from './components/Toolbar.vue'
-import ValidationBanner from './components/ValidationBanner.vue'
-import MetadataPanel from './components/MetadataPanel.vue'
-import CameraPanel from './components/CameraPanel.vue'
-import ObjectList from './components/ObjectList.vue'
-import ObjectEditor from './components/ObjectEditor.vue'
-import PreviewCanvas from './components/PreviewCanvas.vue'
-import Timeline from './components/Timeline.vue'
-import ExportPanel from './components/ExportPanel.vue'
-import { useAppState } from './composables/useAppState'
-import { useI18n } from './i18n'
+import { ref } from "vue"
+import Toolbar from "./components/Toolbar.vue"
+import ValidationBanner from "./components/ValidationBanner.vue"
+import MetadataPanel from "./components/MetadataPanel.vue"
+import CameraPanel from "./components/CameraPanel.vue"
+import ObjectList from "./components/ObjectList.vue"
+import ObjectEditor from "./components/ObjectEditor.vue"
+import PreviewCanvas from "./components/PreviewCanvas.vue"
+import Timeline from "./components/Timeline.vue"
+import ExportPanel from "./components/ExportPanel.vue"
+import { useAppState } from "./composables/useAppState"
+import { useI18n } from "./i18n"
 
 const { loadResourcePack } = useAppState()
 const { t } = useI18n()
-const isResourcePackDragOver = ref(false)
-const ZIP_MIME_TYPES = new Set([
-  'application/zip',
-  'application/x-zip-compressed',
-  'application/x-zip',
-])
+const isResourcePackDragOver = ref( false )
+const ZIP_MIME_TYPES = new Set( [ "application/zip", "application/x-zip-compressed", "application/x-zip" ] )
 
-function getDroppedZip(event: DragEvent) {
-  return Array.from(event.dataTransfer?.files ?? [])
-    .find(file => file.name.toLowerCase().endsWith('.zip'))
+function getDroppedZip( event: DragEvent ) {
+  return Array.from( event.dataTransfer?.files ?? [] ).find( ( file ) => file.name.toLowerCase().endsWith( ".zip" ) )
 }
 
-function isResourcePackDrop(event: DragEvent) {
-  const items = Array.from(event.dataTransfer?.items ?? [])
-  if (items.some(item => item.kind === 'file' && ZIP_MIME_TYPES.has(item.type))) return true
+function isResourcePackDrop( event: DragEvent ) {
+  const items = Array.from( event.dataTransfer?.items ?? [] )
+  if ( items.some( ( item ) => item.kind === "file" && ZIP_MIME_TYPES.has( item.type ) ) ) return true
 
-  const types = Array.from(event.dataTransfer?.types ?? [])
-  if (types.includes('Files')) {
-    return Array.from(event.dataTransfer?.files ?? [])
-      .some(file => file.name.toLowerCase().endsWith('.zip'))
+  const types = Array.from( event.dataTransfer?.types ?? [] )
+  if ( types.includes( "Files" ) ) {
+    return Array.from( event.dataTransfer?.files ?? [] ).some( ( file ) => file.name.toLowerCase().endsWith( ".zip" ) )
   }
 
   return false
 }
 
-function handleResourcePackDragOver(event: DragEvent) {
-  if (!isResourcePackDrop(event)) return
+function handleResourcePackDragOver( event: DragEvent ) {
+  if ( ! isResourcePackDrop( event ) ) return
   event.preventDefault()
   isResourcePackDragOver.value = true
-  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy'
+  if ( event.dataTransfer ) event.dataTransfer.dropEffect = "copy"
 }
 
-function handleResourcePackDragLeave(event: DragEvent) {
+function handleResourcePackDragLeave( event: DragEvent ) {
   const target = event.currentTarget as HTMLElement
   const nextTarget = event.relatedTarget as Node | null
-  if (!nextTarget || !target.contains(nextTarget)) {
+  if ( ! nextTarget || ! target.contains( nextTarget ) ) {
     isResourcePackDragOver.value = false
   }
 }
 
-async function handleResourcePackDrop(event: DragEvent) {
-  const file = getDroppedZip(event)
-  if (!file) return
+async function handleResourcePackDrop( event: DragEvent ) {
+  const file = getDroppedZip( event )
+  if ( ! file ) return
 
   event.preventDefault()
   isResourcePackDragOver.value = false
-  await loadResourcePack(file)
+  await loadResourcePack( file )
 }
 </script>
 

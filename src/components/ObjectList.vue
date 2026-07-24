@@ -1,40 +1,41 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { useAppState } from '../composables/useAppState'
-import { useI18n } from '../i18n'
-import type { SceneObject } from '../types/schema'
-import ObjectIcon from './ObjectIcon.vue'
+import { computed, ref } from "vue"
+import { useAppState } from "../composables/useAppState"
+import { useI18n } from "../i18n"
+import type { SceneObject } from "../types/schema"
+import ObjectIcon from "./ObjectIcon.vue"
 
-const { schema, selectedObjectIds, selectObject, clearObjectSelection, addObject, deleteSelectedObjects } = useAppState()
+const { schema, selectedObjectIds, selectObject, clearObjectSelection, addObject, deleteSelectedObjects } =
+  useAppState()
 const { t } = useI18n()
-const isDeleteConfirmOpen = ref(false)
-const isAddPanelOpen = ref(false)
-const newObjectId = ref('')
-const newObjectType = ref<SceneObject['type']>('block')
-const hasSubmittedAdd = ref(false)
-const objectTypes = ['block', 'camera'] as const
+const isDeleteConfirmOpen = ref( false )
+const isAddPanelOpen = ref( false )
+const newObjectId = ref( "" )
+const newObjectType = ref< SceneObject[ "type" ] >( "block" )
+const hasSubmittedAdd = ref( false )
+const objectTypes = [ "block", "camera" ] as const
 
-const trimmedNewObjectId = computed(() => newObjectId.value.trim())
-const existingObjectIds = computed(() => new Set(schema.value?.objects.map(object => object.id) ?? []))
-const newObjectIdError = computed(() => {
-  if (!hasSubmittedAdd.value && trimmedNewObjectId.value.length === 0) return ''
-  if (trimmedNewObjectId.value.length === 0) return t('objects.addIdRequired')
-  if (existingObjectIds.value.has(trimmedNewObjectId.value)) {
-    return t('objects.addIdDuplicate', { id: trimmedNewObjectId.value })
+const trimmedNewObjectId = computed( () => newObjectId.value.trim() )
+const existingObjectIds = computed( () => new Set( schema.value?.objects.map( ( object ) => object.id ) ?? [] ) )
+const newObjectIdError = computed( () => {
+  if ( ! hasSubmittedAdd.value && trimmedNewObjectId.value.length === 0 ) return ""
+  if ( trimmedNewObjectId.value.length === 0 ) return t( "objects.addIdRequired" )
+  if ( existingObjectIds.value.has( trimmedNewObjectId.value ) ) {
+    return t( "objects.addIdDuplicate", { id: trimmedNewObjectId.value } )
   }
-  return ''
-})
+  return ""
+} )
 
-function handleObjectClick(event: MouseEvent, id: string) {
-  selectObject(id, event.ctrlKey || event.metaKey)
+function handleObjectClick( event: MouseEvent, id: string ) {
+  selectObject( id, event.ctrlKey || event.metaKey )
 }
 
 function openAddPanel() {
-  if (!schema.value) return
+  if ( ! schema.value ) return
   isAddPanelOpen.value = true
   hasSubmittedAdd.value = false
-  newObjectId.value = ''
-  newObjectType.value = 'block'
+  newObjectId.value = ""
+  newObjectType.value = "block"
   clearObjectSelection()
 }
 
@@ -45,15 +46,15 @@ function closeAddPanel() {
 
 function submitAddObject() {
   hasSubmittedAdd.value = true
-  if (newObjectIdError.value) return
+  if ( newObjectIdError.value ) return
 
-  if (addObject(trimmedNewObjectId.value, newObjectType.value)) {
+  if ( addObject( trimmedNewObjectId.value, newObjectType.value ) ) {
     closeAddPanel()
   }
 }
 
 function handleDeleteSelectedObjects() {
-  if (selectedObjectIds.value.length === 0) return
+  if ( selectedObjectIds.value.length === 0 ) return
   isDeleteConfirmOpen.value = true
 }
 
