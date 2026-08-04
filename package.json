@@ -24,11 +24,11 @@
     "@biomejs/biome": "^2.5.6",
     "@types/jszip": "^3.4.1",
     "@types/node": "^26.1.2",
-    "@types/three": "^0.185.1",
+    "@types/three": "^0.185.3",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vue/tsconfig": "^0.9.1",
     "typescript": "~6.0.2",
     "vite": "^8.2.0",
-    "vue-tsc": "^3.3.8"
+    "vue-tsc": "^3.3.9"
   }
 }
