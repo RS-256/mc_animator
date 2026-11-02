@@ -21,14 +21,14 @@
     "vue": "^3.5.44"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.6.3",
+    "@biomejs/biome": "^2.6.4",
     "@types/jszip": "^3.4.1",
-    "@types/node": "^26.6.5",
+    "@types/node": "^26.6.6",
     "@types/three": "^0.186.0",
     "@vitejs/plugin-vue": "^6.0.10",
     "@vue/tsconfig": "^0.9.1",
     "typescript": "~6.0.2",
     "vite": "^8.3.5",
-    "vue-tsc": "^3.3.13"
+    "vue-tsc": "^3.3.14"
   }
 }
